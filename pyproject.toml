@@ -1,23 +1,23 @@
-[project]
-name = "backend"
+[tool.poetry]
+name = "freelance_marketplace"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "QuaNilo",email = "quanojo@gmail.com"}
-]
+authors = ["QuaNilo <quanojo@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "fastapi (>=0.115.11,<0.116.0)",
-    "uvicorn (>=0.34.0,<0.35.0)"
-]
 
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0.0"
+fastapi = ">=0.115.11,<0.116.0"
+uvicorn = ">=0.34.0,<0.35.0"
+python-dotenv = ">=1.0.1,<2.0.0"
+pycardano = ">=0.13.0,<0.14.0"
+pydantic = "^2.10.6"
+pydantic-settings = "^2.8.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
 httpx = "^0.28.1"
 
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
