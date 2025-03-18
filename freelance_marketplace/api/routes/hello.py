@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from pycardano import Address, OgmiosChainContext
+from pycardano import Address, OgmiosChainContext, Network
 from freelance_marketplace.core.config import settings
 
 router = APIRouter()
@@ -7,8 +7,7 @@ router = APIRouter()
 @router.get("/test", tags=["testing"])
 async def test():
     # Connect to Ogmios (Make sure it's running locally)
-    context = OgmiosChainContext(host="localhost", port=1337)
-    print(settings.test)
+    context = OgmiosChainContext(host="localhost", port=1337, network=Network.TESTNET)
     public_address = settings.test.addr
 
     try:
