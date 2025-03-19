@@ -1,10 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-
 from freelance_marketplace.core.config import settings
 from freelance_marketplace.api.routes.hello import router as hello_router
-
 from freelance_marketplace.middleware.response_wrapper import transform_response_middleware
 from dotenv import load_dotenv
 
