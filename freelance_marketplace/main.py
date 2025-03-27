@@ -5,6 +5,7 @@ from freelance_marketplace.core.config import settings
 from freelance_marketplace.middleware.response_wrapper import transform_response_middleware
 from dotenv import load_dotenv
 from freelance_marketplace.db.sql.database import init_db, AsyncSessionLocal
+from freelance_marketplace.db.no_sql.mongo import mongo_session
 
 from freelance_marketplace.api.routes.user_roles.user_roles import router as user_roles_router
 from freelance_marketplace.api.routes.hello import router as hello_router
@@ -38,6 +39,7 @@ app.include_router(user_roles_router, prefix="/api/v1")
 @app.on_event("startup")
 async def startup():
     await init_db()
+    await mongo_session.init_mongo()
     async with AsyncSessionLocal() as session:
         await seed_roles(session)
     
