@@ -1,5 +1,6 @@
 # Decentralized Freelance Marketplace
 
+
 ## Project Overview
 
 A decentralized freelance marketplace built on the Cardano blockchain, enabling secure and transparent job agreements through smart contracts. Freelancers can create profiles, and clients can hire them, with payments locked in a smart contract and released based on milestone approvals. Authentication is handled via Cardano wallet integration, ensuring trustless transactions without intermediaries.
