@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
+from sqlalchemy.orm import relationship
 from starlette.exceptions import HTTPException
 
 Base = declarative_base()
@@ -13,6 +13,7 @@ class Roles(Base):
     role_id = Column(Integer, primary_key=True, autoincrement=True)
     role_name = Column(String(50), nullable=False, unique=True)
     role_description = Column(Text, nullable=True)
+    users = relationship("User", back_populates="role")
 
     @classmethod
     async def create(cls,

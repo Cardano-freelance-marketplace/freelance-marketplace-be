@@ -1,7 +1,6 @@
-from sqlalchemy import select, delete
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from freelance_marketplace.models.sql_roles import Roles
-
+from freelance_marketplace.models.sql.sql_roles import Roles
 
 async def seed_roles(session: AsyncSession):
     default_roles = [
