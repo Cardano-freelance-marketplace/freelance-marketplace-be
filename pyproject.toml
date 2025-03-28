@@ -5,7 +5,6 @@ description = ""
 authors = ["QuaNilo <quanojo@gmail.com>"]
 readme = "README.md"
 license = "MIT"  # Optional, add if you have a license
-packages = [{ include = "your_package_name" }]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0.0"
