@@ -1,45 +1,90 @@
+from typing import Type, List, Any, Coroutine
+
 from fastapi import HTTPException
-from sqlalchemy import delete
+from sqlalchemy import delete, update, select, Result
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.models.sql.request_model.UserRequest import UserRequest
 from freelance_marketplace.models.sql.sql_tables import User
 
 
 class UsersLogic:
-
     @staticmethod
     async def create(
             db : AsyncSession,
             user: UserRequest
-    ):
-        return await User.create(db=db, **user.model_dump())
+    ) -> bool:
+        try:
+            await User.create(db=db, **user.model_dump())
+            return True
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"{str(e)}")
 
     @staticmethod
     async def delete(
             db: AsyncSession,
             user_id: int
-    ):
+    )-> bool:
         try:
             transaction = delete(User).where(User.user_id == user_id)
             await db.execute(transaction)
             await db.commit()
-            return "User deleted successfully"
+            return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 
     @staticmethod
-    async def update():
-        raise HTTPException(status_code=500, detail="This feature is not implemented yet")
+    async def update(
+            db: AsyncSession,
+            user_id: int,
+            user: UserRequest
+    ) -> bool:
+        try:
+            stmt = (
+                update(User)
+                .where(User.user_id == user_id)
+                .values(**user.model_dump())
+                .execution_options(synchronize_session="fetch")
+            )
+            await db.execute(stmt)
+            await db.commit()
+
+            return True
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="This feature is not implemented yet")
 
     @staticmethod
-    async def get_all():
-        raise HTTPException(status_code=500, detail="This feature is not implemented yet")
+    async def get_all(
+            db: AsyncSession,
+    ) -> Result[tuple[User]]:
+        users = await db.execute(select(User))
+        if not users:
+            raise HTTPException(status_code=204, detail="Users not found")
+        return users
 
     @staticmethod
-    async def get_user(user_id):
-        raise HTTPException(status_code=500, detail="This feature is not implemented yet")
+    async def get_user(
+            db: AsyncSession,
+            user_id
+    ) -> Type[User]:
+        try:
+            user = await db.get(User, user_id)
+            if not user:
+                raise HTTPException(status_code=204, detail=f"User {user_id} not found")
+
+            return user
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"{str(e)}")
 
     @staticmethod
-    async def get_user_by_job(job_id):
+    async def get_user_by_job(
+            db: AsyncSession,
+            job_id: int,
+    ):
+        # job = await db.execute(select(Job.job_id == job_id))
+        # if not job:
+        #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")
+        # users = [job.freelancer_id, job.client_id]
+        #
         raise HTTPException(status_code=500, detail="This feature is not implemented yet")
