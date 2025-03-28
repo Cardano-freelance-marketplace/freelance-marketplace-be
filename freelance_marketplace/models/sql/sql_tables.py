@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, Boolean, ForeignKey, VARCHAR, Enum, Table, delete, insert
-from sqlalchemy.orm import mapped_column
-
+from sqlalchemy import DateTime, Boolean, ForeignKey, VARCHAR, Enum, Table, delete, insert, TIMESTAMP
+from freelance_marketplace.db.sql.database import Base
 from freelance_marketplace.models.enums.userRole import UserRole
 from freelance_marketplace.models.enums.userType import UserType
 from freelance_marketplace.models.enums.walletType import WalletType
@@ -11,8 +10,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship, Mapped
 from starlette.exceptions import HTTPException
-
-Base = declarative_base()
 
 profile_skills = Table(
     "profile_skills",
@@ -25,14 +22,14 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    creation_date = Column(DateTime, nullable=False, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, nullable=True)
+    creation_date = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
     wallet_type = Column(Enum(WalletType), nullable=False)
-    last_login = Column(DateTime, nullable=False, default=datetime.now(timezone.utc))
+    last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     user_type = Column(Enum(UserType), nullable=False)
-    role_id = Column(Integer, ForeignKey("roles.role_id"))
+    role_id = Column(Integer, ForeignKey("roles.role_id"), default=UserRole.User.value)
 
     role = relationship("Role", back_populates="users")
     profile = relationship("Profiles", back_populates="user")
@@ -120,20 +117,21 @@ class Role(Base):
             raise HTTPException(status_code=500, detail=str(e))
 
     @classmethod
-    async def seed_roles(cls, db: AsyncSession):
+    async def seed_roles(cls, db: AsyncSession) -> bool:
         default_roles = [
             {"role_id": UserRole.Admin.value, "role_name": UserRole.Admin.name, "role_description": f"{UserRole.Admin.name} role"},
             {"role_id": UserRole.User.value, "role_name": UserRole.User.name, "role_description": f"{UserRole.User.name} role"},
             {"role_id": UserRole.Guest.value, "role_name": UserRole.Guest.name, "role_description": f"{UserRole.Guest.name} role"},
         ]
+        try:
+            stmt = insert(cls).values(default_roles)  # Prepare the insert statement
+            await db.execute(stmt)  # Execute the statement
+            await db.commit()  # Commit the transaction
+            return True
+        except Exception as e:
+            await db.rollback()
+            return False
 
-        await db.execute(delete(Role))
-        await db.commit()
-
-        # Perform bulk insert using `insert()` and `execute()`
-        stmt = insert(cls).values(default_roles)  # Prepare the insert statement
-        await db.execute(stmt)  # Execute the statement
-        await db.commit()  # Commit the transaction
 
 class Profiles(Base):
     __tablename__ = "profiles"

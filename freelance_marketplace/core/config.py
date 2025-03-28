@@ -9,11 +9,19 @@ class TestingSettings(BaseSettings):
         extra = "ignore"  # Ignore extra fields
 
 class Mongo(BaseSettings):
-    connection_string: str
-    database_name: str
+    connection_string: str = ""
+    database_name: str = ""
 
     class Config:
         env_prefix = "MONGO_"
+        env_file = ".env"
+        extra = "ignore"  # Ignore extra fields
+
+class SQL(BaseSettings):
+    connection_string: str = ""
+
+    class Config:
+        env_prefix = "SQL_"
         env_file = ".env"
         extra = "ignore"  # Ignore extra fields
 
@@ -32,6 +40,7 @@ class Settings(BaseSettings):
     fastapi: FastAPISettings = FastAPISettings()
     test: TestingSettings = TestingSettings()
     mongo: Mongo = Mongo()
+    sql: SQL = SQL()
 
     class Config:
         env_nested_delimiter = "__"

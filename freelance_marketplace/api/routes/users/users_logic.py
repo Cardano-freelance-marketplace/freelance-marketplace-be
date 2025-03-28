@@ -1,4 +1,4 @@
-from typing import Type, List, Any, Coroutine
+from typing import Type, List, Any, Coroutine, Sequence
 
 from fastapi import HTTPException
 from sqlalchemy import delete, update, select, Result
@@ -39,6 +39,8 @@ class UsersLogic:
             user_id: int,
             user: UserRequest
     ) -> bool:
+
+        # TODO WHEN UPDATING A USER SET, UPDATED_AT TO NOW()
         try:
             stmt = (
                 update(User)
@@ -56,8 +58,9 @@ class UsersLogic:
     @staticmethod
     async def get_all(
             db: AsyncSession,
-    ) -> Result[tuple[User]]:
-        users = await db.execute(select(User))
+    ) -> Sequence[User]:
+        result = await db.execute(select(User))
+        users = result.scalars().all()
         if not users:
             raise HTTPException(status_code=204, detail="Users not found")
         return users
@@ -66,12 +69,12 @@ class UsersLogic:
     async def get_user(
             db: AsyncSession,
             user_id
-    ) -> Type[User]:
+    ) -> User:
         try:
-            user = await db.get(User, user_id)
+            result = await db.execute(select(User).where(User.user_id == user_id))
+            user = result.scalars().first()
             if not user:
                 raise HTTPException(status_code=204, detail=f"User {user_id} not found")
-
             return user
 
         except Exception as e:
@@ -82,6 +85,7 @@ class UsersLogic:
             db: AsyncSession,
             job_id: int,
     ):
+        ##TODO Create get user by job
         # job = await db.execute(select(Job.job_id == job_id))
         # if not job:
         #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")

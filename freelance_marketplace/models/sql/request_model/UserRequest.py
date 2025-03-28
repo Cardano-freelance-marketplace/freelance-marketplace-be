@@ -1,5 +1,10 @@
 from pydantic import BaseModel
 
+from freelance_marketplace.models.enums.userType import UserType
+from freelance_marketplace.models.enums.walletType import WalletType
+
 
 class UserRequest(BaseModel):
-    pass
+    wallet_public_address: str
+    wallet_type: WalletType
+    user_type: UserType

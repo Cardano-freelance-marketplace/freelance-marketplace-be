@@ -8,6 +8,7 @@ from freelance_marketplace.db.sql.database import init_db, AsyncSessionLocal
 from freelance_marketplace.db.no_sql.mongo import mongo_session
 
 from freelance_marketplace.api.routes.user_roles.user_roles import router as user_roles_router
+from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
 from freelance_marketplace.models.sql.sql_tables import Role
 
@@ -34,6 +35,7 @@ app.middleware("http")(transform_response_middleware)
 # Register routers
 app.include_router(hello_router, prefix="/api/v1")
 app.include_router(user_roles_router, prefix="/api/v1")
+app.include_router(users_router, prefix="/api/v1")
 
 
 @app.on_event("startup")
