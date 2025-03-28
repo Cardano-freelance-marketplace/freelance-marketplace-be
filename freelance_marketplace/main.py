@@ -9,7 +9,7 @@ from freelance_marketplace.db.no_sql.mongo import mongo_session
 
 from freelance_marketplace.api.routes.user_roles.user_roles import router as user_roles_router
 from freelance_marketplace.api.routes.hello import router as hello_router
-from freelance_marketplace.models.seeds.seed_roles import seed_roles
+from freelance_marketplace.models.sql.sql_tables import Role
 
 load_dotenv()
 
@@ -41,7 +41,7 @@ async def startup():
     await init_db()
     await mongo_session.init_mongo()
     async with AsyncSessionLocal() as session:
-        await seed_roles(session)
+        await Role.seed_roles(session)
     
 @app.on_event("shutdown")
 async def on_shutdown():

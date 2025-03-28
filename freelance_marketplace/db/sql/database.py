@@ -1,7 +1,8 @@
 from sqlalchemy.ext.asyncio import (AsyncSession,
                                     create_async_engine, async_sessionmaker)
+from sqlalchemy.ext.declarative import declarative_base
 
-from freelance_marketplace.models.sql.sql_roles import Base
+Base = declarative_base()
 
 DATABASE_URL = "postgresql+asyncpg://user:password@localhost:5432/mydatabase"
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)
