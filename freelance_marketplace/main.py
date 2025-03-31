@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 from freelance_marketplace.core.config import settings
 from freelance_marketplace.middleware.response_wrapper import transform_response_middleware
 from dotenv import load_dotenv
@@ -16,10 +22,15 @@ load_dotenv()
 
 origins = ['*', "http://localhost:4200"]
 
+
 app = FastAPI(
     **settings.fastapi.model_dump()
 )
 
+# Rate Limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["15/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -30,6 +41,7 @@ app.add_middleware(
 )
 
 # Apply Middlewares
+app.add_middleware(SlowAPIMiddleware)
 app.middleware("http")(transform_response_middleware)
 
 # Register routers
