@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import DateTime, Boolean, ForeignKey, VARCHAR, Enum, Table, delete, insert, TIMESTAMP, Float, ARRAY, \
-    DECIMAL, select
+    DECIMAL, select, CheckConstraint
 from freelance_marketplace.db.sql.database import Base
 from freelance_marketplace.models.enums.jobStatus import JobStatus
 from freelance_marketplace.models.enums.jobType import JobType
@@ -22,6 +22,7 @@ profile_skills = Table(
     Column("skill_id", ForeignKey("skills.skill_id"), primary_key=True),
 )
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -33,7 +34,7 @@ class User(Base):
     wallet_type = Column(Enum(WalletType), nullable=False)
     last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     user_type = Column(Enum(UserType), nullable=False)
-    role_id = Column(Integer, ForeignKey("roles.role_id"), default=UserRole.User.value)
+    role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="SET NULL"), default=UserRole.User.value)
 
     client_jobs = relationship("jobs", foreign_keys="[jobs.client_id]", back_populates="client")
     freelancer_jobs = relationship("jobs", foreign_keys="[jobs.freelancer_id]", back_populates="freelancer")
@@ -46,7 +47,7 @@ class User(Base):
     freelancer_transactions = relationship("Transaction", foreign_keys="[Transaction.freelancer_id]", back_populates="freelancer")
 
     role = relationship("Role", back_populates="users")
-    profile = relationship("Profiles", back_populates="users")
+    profile = relationship("Profiles", back_populates="users", cascade="all, delete-orphan", uselist=False)
     proposals = relationship("Proposal", back_populates="freelancer", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="client")
 
@@ -245,7 +246,7 @@ class Profiles(Base):
     __tablename__ = "profiles"
 
     profile_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), unique=True, nullable=False)
     first_name = Column(VARCHAR(50), nullable=False)
     last_name = Column(VARCHAR(50), nullable=False)
     bio = Column(VARCHAR(1000), nullable=True)
@@ -310,11 +311,11 @@ class Jobs(Base):
     job_id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(50), nullable=False)
     description = Column(Text, nullable=False)
-    sub_category_id = Column(Integer, ForeignKey("sub_categories.sub_category_id"), nullable=False)
+    sub_category_id = Column(Integer, ForeignKey("sub_categories.sub_category_id", ondelete='SET NULL'), nullable=False)
     total_price = Column(Float, nullable=True)
     tags = Column(ARRAY(String), nullable=False)
-    client_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    freelancer_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     type = Column(Enum(JobType), nullable=False)
@@ -324,7 +325,7 @@ class Jobs(Base):
     client = relationship("User", back_populates="client_jobs")
     freelancer = relationship("User", back_populates="freelancer_jobs")
     sub_category = relationship("SubCategory", back_populates="jobs")
-    milestones = relationship("Milestones", back_populates="job")
+    milestones = relationship("Milestones", back_populates="job", cascade="all, delete-orphan")
     proposals = relationship("Proposal", back_populates="job", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="job", cascade="all, delete-orphan")
 
@@ -387,23 +388,33 @@ class Milestones(Base):
     __tablename__ = "milestones"
 
     milestone_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_id = Column(Integer, ForeignKey("jobs.job_id"), nullable=False)
+    job_id = Column(Integer, ForeignKey("jobs.job_id", ondelete="CASCADE"), nullable=False)
     milestone_tx_hash = Column(String(4096), nullable=False)
-    client_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    freelancer_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
     milestone_text = Column(Text, nullable=False)
     reward_amount = Column(Float, nullable=False)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow())
+    created_at = Column(TIMESTAMP, default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     client_approved = Column(Boolean, nullable=False, default=False)
     freelancer_approved = Column(Boolean, nullable=False, default=False)
     status = Column(Enum(MilestoneStatus), nullable=False, default=MilestoneStatus.Draft.value)
     type = Column(Enum(MilestoneType), nullable=False, default=MilestoneType.Request_Milestone.value)
+    order_id = Column(Integer, ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=True, unique=True)
+    proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=True, unique=True)
 
+    __table_args__ = (
+        CheckConstraint(
+            "(order_id IS NOT NULL AND proposal_id IS NULL) OR (order_id IS NULL AND proposal_id IS NOT NULL)",
+            name="check_milestone_has_one_parent"
+        ),
+    )
     # Relationships
     job = relationship("Job", back_populates="milestones")
     client = relationship("User", foreign_keys=[client_id], back_populates="client_milestones")
     freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_milestones")
+    order = relationship("Order", back_populates="milestones")
+    proposal = relationship("Proposal", back_populates="milestones")
 
     @classmethod
     async def create(cls,
@@ -465,14 +476,13 @@ class Proposal(Base):
     __tablename__ = "proposals"
 
     proposal_id = Column(Integer, primary_key=True, autoincrement=True)
-    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id"), nullable=True)
-    job_id = Column(Integer, ForeignKey("jobs.job_id"), nullable=False)
-    freelancer_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    job_id = Column(Integer, ForeignKey("jobs.job_id", ondelete="CASCADE"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
 
     # Relationships
     job = relationship("Job", back_populates="proposals")
     freelancer = relationship("User", back_populates="proposals")
-    milestone = relationship("Milestones", back_populates="proposals", foreign_keys=[milestone_id])
+    milestones = relationship("Milestones", back_populates="proposal", cascade="all, delete-orphan")
 
     @classmethod
     async def create(cls,
@@ -519,23 +529,26 @@ class Proposal(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+class OrderMilestones(Base):
+    __tablename__ = "order_milestones"
 
+    order_id = Column(Integer, ForeignKey("orders.order_id", ondelete="CASCADE"), primary_key=True)
+    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id", ondelete="CASCADE"), primary_key=True)
 
 
 class Order(Base):
     __tablename__ = "orders"
 
     order_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_id = Column(Integer, ForeignKey("jobs.job_id"), nullable=False)
-    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id"), nullable=True)
-    client_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    job_id = Column(Integer, ForeignKey("jobs.job_id", ondelete="CASCADE"), nullable=False)
+    client_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
 
     # Relationships
     job = relationship("Job", back_populates="orders")
-    milestone = relationship("Milestones", back_populates="orders", foreign_keys=[milestone_id])
+    milestones = relationship("Milestones", back_populates="order", cascade="all, delete-orphan")
     client = relationship("User", back_populates="orders")
 
 
@@ -590,13 +603,13 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     transaction_id = Column(Integer, primary_key=True, autoincrement=True)
-    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id"), nullable=False)
+    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id", ondelete="CASCADE"), nullable=False)
     amount = Column(DECIMAL(10, 2), nullable=False)
     token_name = Column(String(50), nullable=True)
     receiver_address = Column(Text, nullable=True)
-    client_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    freelancer_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
 
@@ -714,7 +727,7 @@ class SubCategory(Base):
     sub_category_id = Column(Integer, primary_key=True, autoincrement=True)
     sub_category_name = Column(String(50), nullable=True)
     sub_category_description = Column(Text, nullable=True)
-    category_id = Column(Integer, ForeignKey("categories.category_id"), nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.category_id", ondelete="CASCADE"), nullable=False)
 
     category = relationship("Category", back_populates="sub_categories")
 
@@ -768,8 +781,8 @@ class Review(Base):
     __tablename__ = "reviews"
 
     review_id = Column(Integer, primary_key=True, autoincrement=True)
-    reviewee_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)  # Person being reviewed
-    reviewer_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)  # Person giving the review
+    reviewee_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)  # Person being reviewed
+    reviewer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)  # Person giving the review
     rating = Column(DECIMAL(2, 1), nullable=False)  # Rating between 1.0 and 5.0
     comment = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
