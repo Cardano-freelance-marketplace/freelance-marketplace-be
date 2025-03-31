@@ -1,12 +1,16 @@
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, Boolean, ForeignKey, VARCHAR, Enum, Table, delete, insert, TIMESTAMP
+from sqlalchemy import DateTime, Boolean, ForeignKey, VARCHAR, Enum, Table, delete, insert, TIMESTAMP, Float, ARRAY, \
+    DECIMAL, select
 from freelance_marketplace.db.sql.database import Base
+from freelance_marketplace.models.enums.jobStatus import JobStatus
+from freelance_marketplace.models.enums.jobType import JobType
+from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus
+from freelance_marketplace.models.enums.milestoneType import MilestoneType
 from freelance_marketplace.models.enums.userRole import UserRole
 from freelance_marketplace.models.enums.userType import UserType
 from freelance_marketplace.models.enums.walletType import WalletType
 from typing import List
 from sqlalchemy import Column, Integer, String, Text
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship, Mapped
 from starlette.exceptions import HTTPException
@@ -23,7 +27,7 @@ class User(Base):
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     creation_date = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     is_active = Column(Boolean, nullable=False, default=True)
     wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
     wallet_type = Column(Enum(WalletType), nullable=False)
@@ -31,8 +35,23 @@ class User(Base):
     user_type = Column(Enum(UserType), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.role_id"), default=UserRole.User.value)
 
+    client_jobs = relationship("jobs", foreign_keys="[jobs.client_id]", back_populates="client")
+    freelancer_jobs = relationship("jobs", foreign_keys="[jobs.freelancer_id]", back_populates="freelancer")
+
+    client_milestones = relationship("milestones", foreign_keys="[milestones.client_id]", back_populates="client")
+    freelancer_milestones = relationship("milestones", foreign_keys="[milestones.freelancer_id]",
+                                         back_populates="freelancer")
+
+    client_transactions = relationship("Transaction", foreign_keys="[Transaction.client_id]", back_populates="client")
+    freelancer_transactions = relationship("Transaction", foreign_keys="[Transaction.freelancer_id]", back_populates="freelancer")
+
     role = relationship("Role", back_populates="users")
-    profile = relationship("Profiles", back_populates="user")
+    profile = relationship("Profiles", back_populates="users")
+    proposals = relationship("Proposal", back_populates="freelancer", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="client")
+
+    received_reviews = relationship("Review", foreign_keys="[Review.reviewee_id]", back_populates="reviewee")
+    given_reviews = relationship("Review", foreign_keys="[Review.reviewer_id]", back_populates="reviewer")
 
 
     @classmethod
@@ -53,6 +72,49 @@ class User(Base):
             await db.commit()
             await db.refresh(user)
             return user
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(
+            cls,
+            db: AsyncSession,
+            user,
+            data: dict,
+            request_user
+    ) -> bool:
+        try:
+            if data:
+                if "user_id" in data:
+                    data.pop("user_id")  # Prevent changing user ID
+
+                for key, value in data.items():
+                    if value is None:
+                        continue
+
+                    if key == "wallet_public_address":
+                        query = await db.execute(
+                            select(User).where(
+                                User.wallet_public_address == value,
+                                User.user_id != user.user_id
+                            )
+                        )
+                        existing_user = query.scalars().first()
+                        if existing_user:
+                            raise HTTPException(
+                                status_code=400,
+                                detail="Wallet public address already exists."
+                            )
+
+                    if hasattr(user, key):
+                        setattr(user, key, value)
+
+            user.updated_at = datetime.now(timezone.utc)
+            await db.commit()
+            await db.refresh(user)
+            return True
 
         except Exception as e:
             await db.rollback()
@@ -85,6 +147,29 @@ class Skills(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+    @classmethod
+    async def edit(cls, db: AsyncSession, skill_id: int, data: dict):
+        try:
+            # Fetch the skill by ID
+            query = await db.execute(select(cls).where(cls.skill_id == skill_id))
+            skill = query.scalars().first()
+
+            if not skill:
+                raise HTTPException(status_code=404, detail="Skill not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(skill, key) and value is not None:
+                    setattr(skill, key, value)
+
+            await db.commit()
+            await db.refresh(skill)
+            return skill
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
 
 class Role(Base):
     __tablename__ = "roles"
@@ -108,6 +193,29 @@ class Role(Base):
                 role_description=role_description,
             )
             db.add(role)
+            await db.commit()
+            await db.refresh(role)
+            return role
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, role_id: int, data: dict):
+        try:
+            # Fetch the role by ID
+            query = await db.execute(select(cls).where(cls.role_id == role_id))
+            role = query.scalars().first()
+
+            if not role:
+                raise HTTPException(status_code=404, detail="Role not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(role, key) and value is not None:
+                    setattr(role, key, value)
+
             await db.commit()
             await db.refresh(role)
             return role
@@ -167,6 +275,554 @@ class Profiles(Base):
             await db.commit()
             await db.refresh(user)
             return user
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, profile_id: int, data: dict):
+        try:
+            # Fetch the profile by ID
+            query = await db.execute(select(cls).where(cls.profile_id == profile_id))
+            profile = query.scalars().first()
+
+            if not profile:
+                raise HTTPException(status_code=404, detail="Profile not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(profile, key) and value is not None:
+                    setattr(profile, key, value)
+
+            await db.commit()
+            await db.refresh(profile)
+            return profile
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+class Jobs(Base):
+    __tablename__ = "jobs"
+
+    job_id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(50), nullable=False)
+    description = Column(Text, nullable=False)
+    sub_category_id = Column(Integer, ForeignKey("sub_categories.sub_category_id"), nullable=False)
+    total_price = Column(Float, nullable=True)
+    tags = Column(ARRAY(String), nullable=False)
+    client_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    type = Column(Enum(JobType), nullable=False)
+    status = Column(Enum(JobStatus), nullable=False, default=JobStatus.Pending_Approval.value)
+
+    # Relationships
+    client = relationship("User", back_populates="client_jobs")
+    freelancer = relationship("User", back_populates="freelancer_jobs")
+    sub_category = relationship("SubCategory", back_populates="jobs")
+    milestones = relationship("Milestones", back_populates="job")
+    proposals = relationship("Proposal", back_populates="job", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="job", cascade="all, delete-orphan")
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     title: str,
+                     description: str,
+                     sub_category_id: int,
+                     total_price: float,
+                     tags: list,
+                     client_id: int,
+                     freelancer_id: int,
+                     job_type: JobType
+     ):
+        try:
+            job = cls(
+                title=title,
+                description=description,
+                sub_category_id=sub_category_id,
+                total_price=total_price,
+                tags=tags,
+                client_id=client_id,
+                freelancer_id=freelancer_id,
+                type=job_type
+            )
+            db.add(job)
+            await db.commit()
+            await db.refresh(job)
+            return job
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, job_id: int, data: dict):
+        try:
+            # Fetch the job by ID
+            query = await db.execute(select(cls).where(cls.job_id == job_id))
+            job = query.scalars().first()
+
+            if not job:
+                raise HTTPException(status_code=404, detail="Job not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(job, key) and value is not None:
+                    setattr(job, key, value)
+
+            await db.commit()
+            await db.refresh(job)
+            return job
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+class Milestones(Base):
+    __tablename__ = "milestones"
+
+    milestone_id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, ForeignKey("jobs.job_id"), nullable=False)
+    milestone_tx_hash = Column(String(4096), nullable=False)
+    client_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    milestone_text = Column(Text, nullable=False)
+    reward_amount = Column(Float, nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    client_approved = Column(Boolean, nullable=False, default=False)
+    freelancer_approved = Column(Boolean, nullable=False, default=False)
+    status = Column(Enum(MilestoneStatus), nullable=False, default=MilestoneStatus.Draft.value)
+    type = Column(Enum(MilestoneType), nullable=False, default=MilestoneType.Request_Milestone.value)
+
+    # Relationships
+    job = relationship("Job", back_populates="milestones")
+    client = relationship("User", foreign_keys=[client_id], back_populates="client_milestones")
+    freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_milestones")
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     job_id: int,
+                     milestone_tx_hash: str,
+                     client_id: int,
+                     freelancer_id: int,
+                     milestone_text: str,
+                     reward_amount: float,
+                     milestone_status: MilestoneStatus = MilestoneStatus.Draft,
+                     milestone_type: MilestoneType = MilestoneType.Request_Milestone
+                     ):
+        try:
+            milestone = cls(
+                job_id=job_id,
+                milestone_tx_hash=milestone_tx_hash,
+                client_id=client_id,
+                freelancer_id=freelancer_id,
+                milestone_text=milestone_text,
+                reward_amount=reward_amount,
+                status=milestone_status,
+                type=milestone_type
+            )
+            db.add(milestone)
+            await db.commit()
+            await db.refresh(milestone)
+            return milestone
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, milestone_id: int, data: dict):
+        try:
+            # Fetch the milestone by ID
+            query = await db.execute(select(cls).where(cls.milestone_id == milestone_id))
+            milestone = query.scalars().first()
+
+            if not milestone:
+                raise HTTPException(status_code=404, detail="Milestone not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(milestone, key) and value is not None:
+                    setattr(milestone, key, value)
+
+            await db.commit()
+            await db.refresh(milestone)
+            return milestone
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+class Proposal(Base):
+    __tablename__ = "proposals"
+
+    proposal_id = Column(Integer, primary_key=True, autoincrement=True)
+    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id"), nullable=True)
+    job_id = Column(Integer, ForeignKey("jobs.job_id"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+
+    # Relationships
+    job = relationship("Job", back_populates="proposals")
+    freelancer = relationship("User", back_populates="proposals")
+    milestone = relationship("Milestones", back_populates="proposals", foreign_keys=[milestone_id])
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     job_id: int,
+                     freelancer_id: int,
+                     milestone_id: int = None
+                     ):
+        try:
+            proposal = cls(
+                job_id=job_id,
+                freelancer_id=freelancer_id,
+                milestone_id=milestone_id
+            )
+            db.add(proposal)
+            await db.commit()
+            await db.refresh(proposal)
+            return proposal
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, proposal_id: int, data: dict):
+        try:
+            # Fetch the proposal by ID
+            query = await db.execute(select(cls).where(cls.proposal_id == proposal_id))
+            proposal = query.scalars().first()
+
+            if not proposal:
+                raise HTTPException(status_code=404, detail="Proposal not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(proposal, key) and value is not None:
+                    setattr(proposal, key, value)
+
+            await db.commit()
+            await db.refresh(proposal)
+            return proposal
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    order_id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, ForeignKey("jobs.job_id"), nullable=False)
+    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id"), nullable=True)
+    client_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+
+
+    # Relationships
+    job = relationship("Job", back_populates="orders")
+    milestone = relationship("Milestones", back_populates="orders", foreign_keys=[milestone_id])
+    client = relationship("User", back_populates="orders")
+
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     job_id: int,
+                     client_id: int,
+                     milestone_id: int = None
+                     ):
+        try:
+            order = cls(
+                job_id=job_id,
+                client_id=client_id,
+                milestone_id=milestone_id
+            )
+            db.add(order)
+            await db.commit()
+            await db.refresh(order)
+            return order
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, order_id: int, data: dict):
+        try:
+            # Fetch the order by ID
+            query = await db.execute(select(cls).where(cls.order_id == order_id))
+            order = query.scalars().first()
+
+            if not order:
+                raise HTTPException(status_code=404, detail="Order not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(order, key) and value is not None:
+                    setattr(order, key, value)
+
+            # Commit the changes and refresh
+            await db.commit()
+            await db.refresh(order)
+            return order
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    transaction_id = Column(Integer, primary_key=True, autoincrement=True)
+    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id"), nullable=False)
+    amount = Column(DECIMAL(10, 2), nullable=False)
+    token_name = Column(String(50), nullable=True)
+    receiver_address = Column(Text, nullable=True)
+    client_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+
+
+    # Relationships
+    milestone = relationship("Milestones", back_populates="transaction", uselist=False)
+    client = relationship("User", foreign_keys=[client_id], back_populates="client_transactions")
+    freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_transactions")
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     milestone_id: int,
+                     amount: float,
+                     client_id: int,
+                     freelancer_id: int,
+                     token_name: str = None,
+                     receiver_address: str = None):
+        try:
+            transaction = cls(
+                milestone_id=milestone_id,
+                amount=amount,
+                client_id=client_id,
+                freelancer_id=freelancer_id,
+                token_name=token_name,
+                receiver_address=receiver_address
+            )
+            db.add(transaction)
+            await db.commit()
+            await db.refresh(transaction)
+            return transaction
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, transaction_id: int, data: dict):
+        try:
+            # Fetch the transaction by ID
+            query = await db.execute(select(cls).where(cls.transaction_id == transaction_id))
+            transaction = query.scalars().first()
+
+            if not transaction:
+                raise HTTPException(status_code=404, detail="Transaction not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(transaction, key) and value is not None:
+                    setattr(transaction, key, value)
+
+            # Commit the changes and refresh
+            await db.commit()
+            await db.refresh(transaction)
+            return transaction
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    category_id = Column(Integer, primary_key=True, autoincrement=True)
+    category_name = Column(String(50), nullable=True)
+    category_description = Column(Text, nullable=True)
+
+    sub_categories = relationship("SubCategory", back_populates="category", cascade="all, delete-orphan")
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     category_name: str,
+                     category_description: str = None):
+        try:
+            category = cls(
+                category_name=category_name,
+                category_description=category_description
+            )
+            db.add(category)
+            await db.commit()
+            await db.refresh(category)
+            return category
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, category_id: int, data: dict):
+        try:
+            # Fetch the category by ID
+            query = await db.execute(select(cls).where(cls.category_id == category_id))
+            category = query.scalars().first()
+
+            if not category:
+                raise HTTPException(status_code=404, detail="Category not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(category, key) and value is not None:
+                    setattr(category, key, value)
+
+            # Commit the changes and refresh
+            await db.commit()
+            await db.refresh(category)
+            return category
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+class SubCategory(Base):
+    __tablename__ = "sub_categories"
+
+    sub_category_id = Column(Integer, primary_key=True, autoincrement=True)
+    sub_category_name = Column(String(50), nullable=True)
+    sub_category_description = Column(Text, nullable=True)
+    category_id = Column(Integer, ForeignKey("categories.category_id"), nullable=False)
+
+    category = relationship("Category", back_populates="sub_categories")
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     sub_category_name: str,
+                     category_id: int,
+                     sub_category_description: str = None):
+        try:
+            sub_category = cls(
+                sub_category_name=sub_category_name,
+                sub_category_description=sub_category_description,
+                category_id=category_id
+            )
+            db.add(sub_category)
+            await db.commit()
+            await db.refresh(sub_category)
+            return sub_category
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, sub_category_id: int, data: dict):
+        try:
+            # Fetch the subcategory by ID
+            query = await db.execute(select(cls).where(cls.sub_category_id == sub_category_id))
+            sub_category = query.scalars().first()
+
+            if not sub_category:
+                raise HTTPException(status_code=404, detail="SubCategory not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(sub_category, key) and value is not None:
+                    setattr(sub_category, key, value)
+
+            # Commit changes and refresh
+            await db.commit()
+            await db.refresh(sub_category)
+            return sub_category
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    review_id = Column(Integer, primary_key=True, autoincrement=True)
+    reviewee_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)  # Person being reviewed
+    reviewer_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)  # Person giving the review
+    rating = Column(DECIMAL(2, 1), nullable=False)  # Rating between 1.0 and 5.0
+    comment = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    reviewee = relationship("User", foreign_keys=[reviewee_id], back_populates="received_reviews")
+    reviewer = relationship("User", foreign_keys=[reviewer_id], back_populates="given_reviews")
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     reviewee_id: int,
+                     reviewer_id: int,
+                     rating: float,
+                     comment: str = None):
+        if rating < 1.0 or rating > 5.0:
+            raise HTTPException(status_code=400, detail="Rating must be between 1.0 and 5.0")
+
+        try:
+            review = cls(
+                reviewee_id=reviewee_id,
+                reviewer_id=reviewer_id,
+                rating=rating,
+                comment=comment
+            )
+            db.add(review)
+            await db.commit()
+            await db.refresh(review)
+            return review
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, review_id: int, data: dict):
+        try:
+            # Fetch the review by ID
+            query = await db.execute(select(cls).where(cls.review_id == review_id))
+            review = query.scalars().first()
+
+            if not review:
+                raise HTTPException(status_code=404, detail="Review not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(review, key) and value is not None:
+                    setattr(review, key, value)
+
+            # Commit changes and refresh
+            await db.commit()
+            await db.refresh(review)
+            return review
 
         except Exception as e:
             await db.rollback()
