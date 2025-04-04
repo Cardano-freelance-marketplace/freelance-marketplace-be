@@ -4,3 +4,4 @@ class UserType(Enum):
     Unknown = 0
     Freelancer = 1
     Client = 2
+    Freelancer_Client = 3

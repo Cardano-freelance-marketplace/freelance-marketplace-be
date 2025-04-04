@@ -33,31 +33,3 @@ async def test():
 
     except Exception as e:
         print(f"Error fetching UTXOs: {e}")
-
-@router.post("/notification", tags=["testing"])
-async def create_notification(
-        notification: Notification
-      ):
-    await notification.create()
-
-
-@router.get("/notification", tags=["testing"])
-async def get_notification(
-        notification_id: str
-      ):
-    notification_result = await Notification.find_one(Notification.id == get_object_id(notification_id))
-    return notification_result
-
-
-@router.patch("/notification", tags=["testing"])
-async def update_notification(
-        notification_id: str,
-        notification: Notification
-      ):
-    notification_result = await Notification.find_one(Notification.id == get_object_id(notification_id))
-
-    if not notification_result:
-        raise HTTPException(status_code=404, detail="Notification not found")
-
-    await Mongo.replace_item(notification_result, notification)
-    return True

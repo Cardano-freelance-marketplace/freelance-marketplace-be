@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 from sqlalchemy import DateTime, Boolean, ForeignKey, VARCHAR, Enum, Table, delete, insert, TIMESTAMP, Float, ARRAY, \
     DECIMAL, select, CheckConstraint
@@ -7,7 +8,7 @@ from freelance_marketplace.models.enums.jobType import JobType
 from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus
 from freelance_marketplace.models.enums.milestoneType import MilestoneType
 from freelance_marketplace.models.enums.userRole import UserRole
-from freelance_marketplace.models.enums.userType import UserType
+from freelance_marketplace.models.enums.userType import UserType as UserTypeEnum
 from freelance_marketplace.models.enums.walletType import WalletType
 from typing import List
 from sqlalchemy import Column, Integer, String, Text
@@ -22,7 +23,6 @@ profile_skills = Table(
     Column("skill_id", ForeignKey("skills.skill_id"), primary_key=True),
 )
 
-
 class User(Base):
     __tablename__ = "users"
 
@@ -30,24 +30,22 @@ class User(Base):
     creation_date = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     is_active = Column(Boolean, nullable=False, default=True)
+    is_deleted = Column(Boolean, nullable=False, default=False)
     wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
     wallet_type = Column(Enum(WalletType), nullable=False)
     last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
-    user_type = Column(Enum(UserType), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="SET NULL"), default=UserRole.User.value)
+    type_id = Column(Integer, ForeignKey("user_types.type_id", ondelete="SET NULL"), default=UserTypeEnum.Freelancer_Client.value)
 
-    client_jobs = relationship("jobs", foreign_keys="[jobs.client_id]", back_populates="client")
-    freelancer_jobs = relationship("jobs", foreign_keys="[jobs.freelancer_id]", back_populates="freelancer")
-
-    client_milestones = relationship("milestones", foreign_keys="[milestones.client_id]", back_populates="client")
-    freelancer_milestones = relationship("milestones", foreign_keys="[milestones.freelancer_id]",
-                                         back_populates="freelancer")
-
+    client_jobs = relationship("Jobs", foreign_keys="[Jobs.client_id]", back_populates="client")
+    freelancer_jobs = relationship("Jobs", foreign_keys="[Jobs.freelancer_id]", back_populates="freelancer")
+    client_milestones = relationship("Milestones", foreign_keys="[Milestones.client_id]", back_populates="client")
+    freelancer_milestones = relationship("Milestones", foreign_keys="[Milestones.freelancer_id]", back_populates="freelancer")
     client_transactions = relationship("Transaction", foreign_keys="[Transaction.client_id]", back_populates="client")
     freelancer_transactions = relationship("Transaction", foreign_keys="[Transaction.freelancer_id]", back_populates="freelancer")
-
     role = relationship("Role", back_populates="users")
-    profile = relationship("Profiles", back_populates="users", cascade="all, delete-orphan", uselist=False)
+    type = relationship("UserType", back_populates="users")
+    profile = relationship("Profiles", back_populates="user", cascade="all, delete-orphan", uselist=False)
     proposals = relationship("Proposal", back_populates="freelancer", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="client")
 
@@ -60,7 +58,7 @@ class User(Base):
                      db: AsyncSession,
                      wallet_public_address: str,
                      wallet_type: WalletType,
-                     user_type: UserType,
+                     user_type: UserTypeEnum,
 
     ):
         try:
@@ -120,6 +118,19 @@ class User(Base):
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
+    @classmethod
+    async def seed_users(cls, db: AsyncSession) -> bool:
+        default_users = [
+            {"wallet_public_address": str(uuid.uuid4()), "wallet_type": 'Lace', "type_id": UserTypeEnum.Freelancer_Client.value},
+        ]
+        try:
+            stmt = insert(cls).values(default_users)  # Prepare the insert statement
+            await db.execute(stmt)  # Execute the statement
+            await db.commit()  # Commit the transaction
+            return True
+        except Exception as e:
+            await db.rollback()
+            return False
 
 class Skills(Base):
     __tablename__ = "skills"
@@ -241,6 +252,76 @@ class Role(Base):
             await db.rollback()
             return False
 
+class UserType(Base):
+    __tablename__ = "user_types"
+
+    type_id = Column(Integer, primary_key=True, autoincrement=True)
+    type_name = Column(String(50), nullable=False, unique=True)
+    type_description = Column(Text, nullable=True)
+    users = relationship("User", back_populates="type")
+
+    @classmethod
+    async def create(cls,
+                     db: AsyncSession,
+                     type_name: str,
+                     type_description: str,
+                     type_id: int = None
+    ):
+        try:
+            type = cls(
+                type_id=type_id,
+                type_name=type_name,
+                type_description=type_description,
+            )
+            db.add(type)
+            await db.commit()
+            await db.refresh(type)
+            return type
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, type_id: int, data: dict):
+        try:
+            # Fetch the type by ID
+            query = await db.execute(select(cls).where(cls.type_id == type_id))
+            type = query.scalars().first()
+
+            if not type:
+                raise HTTPException(status_code=404, detail="Role not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(type, key) and value is not None:
+                    setattr(type, key, value)
+
+            await db.commit()
+            await db.refresh(type)
+            return type
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def seed_types(cls, db: AsyncSession) -> bool:
+        default_types = [
+            {"type_id": UserTypeEnum.Freelancer_Client.value, "type_name": UserTypeEnum.Freelancer_Client.name, "type_description": f"{UserTypeEnum.Freelancer_Client.name} type"},
+            {"type_id": UserTypeEnum.Client.value, "type_name": UserTypeEnum.Client.name, "type_description": f"{UserTypeEnum.Client.name} type"},
+            {"type_id": UserTypeEnum.Freelancer.value, "type_name": UserTypeEnum.Freelancer.name, "type_description": f"{UserTypeEnum.Freelancer.name} type"},
+            {"type_id": UserTypeEnum.Unknown.value, "type_name": UserTypeEnum.Unknown.name, "type_description": f"{UserTypeEnum.Unknown.name} type"},
+        ]
+        try:
+            stmt = insert(cls).values(default_types)  # Prepare the insert statement
+            await db.execute(stmt)  # Execute the statement
+            await db.commit()  # Commit the transaction
+            return True
+        except Exception as e:
+            await db.rollback()
+            return False
+
 
 class Profiles(Base):
     __tablename__ = "profiles"
@@ -322,8 +403,8 @@ class Jobs(Base):
     status = Column(Enum(JobStatus), nullable=False, default=JobStatus.Pending_Approval.value)
 
     # Relationships
-    client = relationship("User", back_populates="client_jobs")
-    freelancer = relationship("User", back_populates="freelancer_jobs")
+    client = relationship("User", foreign_keys=[client_id], back_populates="client_jobs")
+    freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_jobs")
     sub_category = relationship("SubCategory", back_populates="jobs")
     milestones = relationship("Milestones", back_populates="job", cascade="all, delete-orphan")
     proposals = relationship("Proposal", back_populates="job", cascade="all, delete-orphan")
@@ -410,11 +491,12 @@ class Milestones(Base):
         ),
     )
     # Relationships
-    job = relationship("Job", back_populates="milestones")
+    job = relationship("Jobs", back_populates="milestones")
     client = relationship("User", foreign_keys=[client_id], back_populates="client_milestones")
     freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_milestones")
     order = relationship("Order", back_populates="milestones")
     proposal = relationship("Proposal", back_populates="milestones")
+    transaction = relationship("Transaction", back_populates="milestone")
 
     @classmethod
     async def create(cls,
@@ -480,7 +562,7 @@ class Proposal(Base):
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
 
     # Relationships
-    job = relationship("Job", back_populates="proposals")
+    job = relationship("Jobs", back_populates="proposals")
     freelancer = relationship("User", back_populates="proposals")
     milestones = relationship("Milestones", back_populates="proposal", cascade="all, delete-orphan")
 
@@ -545,12 +627,10 @@ class Order(Base):
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
-
     # Relationships
-    job = relationship("Job", back_populates="orders")
+    job = relationship("Jobs", back_populates="orders")
     milestones = relationship("Milestones", back_populates="order", cascade="all, delete-orphan")
     client = relationship("User", back_populates="orders")
-
 
     @classmethod
     async def create(cls,
@@ -730,6 +810,7 @@ class SubCategory(Base):
     category_id = Column(Integer, ForeignKey("categories.category_id", ondelete="CASCADE"), nullable=False)
 
     category = relationship("Category", back_populates="sub_categories")
+    jobs = relationship("Jobs", back_populates="sub_category", cascade="all, delete-orphan")
 
     @classmethod
     async def create(cls,
