@@ -54,8 +54,8 @@ async def startup():
     await mongo_session.init_mongo()
     async with AsyncSessionLocal() as session:
         await Role.seed_roles(session)
-        await User.seed_users(session)
         await UserType.seed_types(session)
+        await User.seed_users(session)
 
 @app.on_event("shutdown")
 async def on_shutdown():

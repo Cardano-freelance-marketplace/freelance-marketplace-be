@@ -121,16 +121,26 @@ class User(Base):
     @classmethod
     async def seed_users(cls, db: AsyncSession) -> bool:
         default_users = [
-            {"wallet_public_address": str(uuid.uuid4()), "wallet_type": 'Lace', "type_id": UserTypeEnum.Freelancer_Client.value},
+            {"wallet_public_address": "testewalletaddress123", "wallet_type": 'Lace', "type_id": UserTypeEnum.Freelancer_Client.value},
         ]
         try:
-            stmt = insert(cls).values(default_users)  # Prepare the insert statement
-            await db.execute(stmt)  # Execute the statement
-            await db.commit()  # Commit the transaction
+
+            existing_users = await db.execute(
+                select(cls.wallet_public_address).where(cls.wallet_public_address.in_([m["wallet_public_address"] for m in default_users]))
+            )
+            existing_wallets_ids = {m[0] for m in existing_users.fetchall()}
+
+            new_users = [m for m in default_users if m["wallet_public_address"] not in existing_wallets_ids]
+
+            if new_users:
+                stmt = insert(cls).values(new_users)
+                await db.execute(stmt)
+                await db.commit()
+
             return True
         except Exception as e:
             await db.rollback()
-            return False
+            raise HTTPException(status_code=500, detail=str(e))
 
 class Skills(Base):
     __tablename__ = "skills"
@@ -244,13 +254,22 @@ class Role(Base):
             {"role_id": UserRole.Guest.value, "role_name": UserRole.Guest.name, "role_description": f"{UserRole.Guest.name} role"},
         ]
         try:
-            stmt = insert(cls).values(default_roles)  # Prepare the insert statement
-            await db.execute(stmt)  # Execute the statement
-            await db.commit()  # Commit the transaction
+            existing_roles = await db.execute(
+                select(cls.role_id).where(cls.role_id.in_([m["role_id"] for m in default_roles]))
+            )
+            existing_role_ids = {m[0] for m in existing_roles.fetchall()}
+
+            new_roles = [m for m in default_roles if m["role_id"] not in existing_role_ids]
+
+            if new_roles:
+                stmt = insert(cls).values(new_roles)
+                await db.execute(stmt)
+                await db.commit()
+
             return True
         except Exception as e:
             await db.rollback()
-            return False
+            raise HTTPException(status_code=500, detail=str(e))
 
 class UserType(Base):
     __tablename__ = "user_types"
@@ -314,13 +333,23 @@ class UserType(Base):
             {"type_id": UserTypeEnum.Unknown.value, "type_name": UserTypeEnum.Unknown.name, "type_description": f"{UserTypeEnum.Unknown.name} type"},
         ]
         try:
-            stmt = insert(cls).values(default_types)  # Prepare the insert statement
-            await db.execute(stmt)  # Execute the statement
-            await db.commit()  # Commit the transaction
+
+            existing_types = await db.execute(
+                select(cls.type_id).where(cls.type_id.in_([m["type_id"] for m in default_types]))
+            )
+            existing_type_ids = {m[0] for m in existing_types.fetchall()}
+
+            new_types = [m for m in default_types if m["type_id"] not in existing_type_ids]
+
+            if new_types:
+                stmt = insert(cls).values(new_types)
+                await db.execute(stmt)
+                await db.commit()
+
             return True
         except Exception as e:
             await db.rollback()
-            return False
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 class Profiles(Base):
