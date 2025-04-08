@@ -1,12 +1,11 @@
-import uuid
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, Boolean, ForeignKey, VARCHAR, Enum, Table, delete, insert, TIMESTAMP, Float, ARRAY, \
+from sqlalchemy import Boolean, ForeignKey, VARCHAR, Enum, Table, insert, TIMESTAMP, Float, ARRAY, \
     DECIMAL, select, CheckConstraint
 from freelance_marketplace.db.sql.database import Base
 from freelance_marketplace.models.enums.jobStatus import JobStatus
 from freelance_marketplace.models.enums.jobType import JobType
-from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus
 from freelance_marketplace.models.enums.milestoneType import MilestoneType
+from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus as MilestoneStatusEnum
 from freelance_marketplace.models.enums.userRole import UserRole
 from freelance_marketplace.models.enums.userType import UserType as UserTypeEnum
 from freelance_marketplace.models.enums.walletType import WalletType
@@ -435,10 +434,11 @@ class Jobs(Base):
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
-    type = Column(Enum(JobType), nullable=False)
+    job_type_id = Column(Integer, ForeignKey("job_types.job_type_id", ondelete="SET NULL"), nullable=True)
     status = Column(Enum(JobStatus), nullable=False, default=JobStatus.Pending_Approval.value)
 
     # Relationships
+    job_type = relationship("JobTypes", back_populates="jobs")
     client = relationship("User", foreign_keys=[client_id], back_populates="client_jobs")
     freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_jobs")
     sub_category = relationship("SubCategory", back_populates="jobs")
@@ -456,7 +456,7 @@ class Jobs(Base):
                      tags: list,
                      client_id: int,
                      freelancer_id: int,
-                     job_type: JobType
+                     job_type: int
      ):
         try:
             job = cls(
@@ -501,6 +501,39 @@ class Jobs(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+class JobTypes(Base):
+    __tablename__ = "job_types"
+    job_type_id = Column(Integer, primary_key=True, autoincrement=True)
+    job_type_name = Column(String(50), nullable=False)
+    job_type_description = Column(Text, nullable=False)
+
+    jobs = relationship("Jobs", back_populates="job_type")
+
+    @classmethod
+    async def seed_types(cls, db: AsyncSession) -> bool:
+        default_types = [
+            {"job_type_id": JobType.REQUEST.value, "job_type_name": JobType.REQUEST.name, "job_type_description": f"Job of type request is a job created by a client looking for a freelancer to complete the work"},
+            {"job_type_id": JobType.SERVICE.value, "job_type_name": JobType.SERVICE.name, "job_type_description": f"Job of type service is a job created by a freelancer, so that clients can order the freelancer's work"},
+        ]
+        try:
+
+            existing_types = await db.execute(
+                select(cls.job_type_id).where(cls.job_type_id.in_([m["job_type_id"] for m in default_types]))
+            )
+            existing_job_type_ids = {m[0] for m in existing_types.fetchall()}
+
+            new_types = [m for m in default_types if m["job_type_id"] not in existing_job_type_ids]
+
+            if new_types:
+                stmt = insert(cls).values(new_types)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
 class Milestones(Base):
     __tablename__ = "milestones"
 
@@ -515,8 +548,8 @@ class Milestones(Base):
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     client_approved = Column(Boolean, nullable=False, default=False)
     freelancer_approved = Column(Boolean, nullable=False, default=False)
-    status = Column(Enum(MilestoneStatus), nullable=False, default=MilestoneStatus.Draft.value)
-    type = Column(Enum(MilestoneType), nullable=False, default=MilestoneType.Request_Milestone.value)
+    milestone_type_id = Column(Integer, ForeignKey("milestone_types.milestone_type_id", ondelete="SET NULL"), nullable=True)
+    milestone_status_id = Column(Integer, ForeignKey("milestone_status.milestone_status_id", ondelete="SET NULL"), nullable=True)
     order_id = Column(Integer, ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=True, unique=True)
     proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=True, unique=True)
 
@@ -527,6 +560,8 @@ class Milestones(Base):
         ),
     )
     # Relationships
+    milestone_type = relationship("MilestoneTypes", back_populates="milestones")
+    milestone_status = relationship("MilestoneStatus", back_populates="milestones")
     job = relationship("Jobs", back_populates="milestones")
     client = relationship("User", foreign_keys=[client_id], back_populates="client_milestones")
     freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_milestones")
@@ -543,8 +578,8 @@ class Milestones(Base):
                      freelancer_id: int,
                      milestone_text: str,
                      reward_amount: float,
-                     milestone_status: MilestoneStatus = MilestoneStatus.Draft,
-                     milestone_type: MilestoneType = MilestoneType.Request_Milestone
+                     milestone_status_id: int = MilestoneStatusEnum.DRAFT.value,
+                     milestone_type_id: int = MilestoneType.REQUEST.value
                      ):
         try:
             milestone = cls(
@@ -554,8 +589,8 @@ class Milestones(Base):
                 freelancer_id=freelancer_id,
                 milestone_text=milestone_text,
                 reward_amount=reward_amount,
-                status=milestone_status,
-                type=milestone_type
+                milestone_status_id=milestone_status_id,
+                milestone_type_id=milestone_type_id
             )
             db.add(milestone)
             await db.commit()
@@ -588,6 +623,74 @@ class Milestones(Base):
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
+
+class MilestoneTypes(Base):
+    __tablename__ = "milestone_types"
+    milestone_type_id = Column(Integer, primary_key=True, autoincrement=True)
+    milestone_type_name = Column(String(50), nullable=False)
+    milestone_type_description = Column(Text, nullable=False)
+
+    milestones = relationship("Milestones", back_populates="milestone_type")
+
+    @classmethod
+    async def seed_types(cls, db: AsyncSession) -> bool:
+        default_types = [
+            {"milestone_type_id": MilestoneType.REQUEST.value, "milestone_type_name": MilestoneType.REQUEST.name, "milestone_type_description": f"Milestone of type request is a milestone created by a client looking for a freelancer to complete the work"},
+            {"milestone_type_id": MilestoneType.SERVICE.value, "milestone_type_name": MilestoneType.SERVICE.name, "milestone_type_description": f"Milestone of type service is a milestone created by a freelancer, so that clients can order the freelancer's work"},
+        ]
+        try:
+
+            existing_types = await db.execute(
+                select(cls.milestone_type_id).where(cls.milestone_type_id.in_([m["milestone_type_id"] for m in default_types]))
+            )
+            existing_milestone_type_ids = {m[0] for m in existing_types.fetchall()}
+
+            new_types = [m for m in default_types if m["milestone_type_id"] not in existing_milestone_type_ids]
+
+            if new_types:
+                stmt = insert(cls).values(new_types)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+class MilestoneStatus(Base):
+    __tablename__ = "milestone_status"
+    milestone_status_id = Column(Integer, primary_key=True, autoincrement=True)
+    milestone_status_name = Column(String(50), nullable=False)
+    milestone_status_description = Column(Text, nullable=False)
+
+    milestones = relationship("Milestones", back_populates="milestone_status")
+
+    @classmethod
+    async def seed_status(cls, db: AsyncSession) -> bool:
+        default_status = [
+            {"milestone_status_id": MilestoneStatusEnum.DRAFT.value, "milestone_status_name": MilestoneStatusEnum.DRAFT.name, "milestone_status_description": f"Milestone of status DRAFT is a milestone that is still not finished and changes are still pending"},
+            {"milestone_status_id": MilestoneStatusEnum.IN_PROGRESS.value, "milestone_status_name": MilestoneStatusEnum.IN_PROGRESS.name, "milestone_status_description": f"Milestone of status IN PROGRESS is a milestone that changes have been submitted and is being actively worked on"},
+            {"milestone_status_id": MilestoneStatusEnum.COMPLETED.value, "milestone_status_name": MilestoneStatusEnum.COMPLETED.name, "milestone_status_description": f"Milestone of status COMPLETED is a milestone that has been completed"},
+        ]
+        try:
+
+            existing_status = await db.execute(
+                select(cls.milestone_status_id).where(cls.milestone_status_id.in_([m["milestone_status_id"] for m in default_status]))
+            )
+            existing_milestone_status_ids = {m[0] for m in existing_status.fetchall()}
+
+            new_statuses = [m for m in default_status if m["milestone_status_id"] not in existing_milestone_status_ids]
+
+            if new_statuses:
+                stmt = insert(cls).values(new_statuses)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
 
 
 class Proposal(Base):

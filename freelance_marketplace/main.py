@@ -18,7 +18,7 @@ from freelance_marketplace.api.routes.portfolios.portfolio import router as port
 from freelance_marketplace.api.routes.notifications.notifications import router as notifications_router
 from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
-from freelance_marketplace.models.sql.sql_tables import Role, User, UserType
+from freelance_marketplace.models.sql.sql_tables import Role, User, UserType, JobTypes, MilestoneTypes, MilestoneStatus
 
 load_dotenv()
 origins = ['*', "http://localhost:4200"]
@@ -60,6 +60,9 @@ async def startup():
     await mongo_session.init_mongo()
     async with AsyncSessionLocal() as session:
         await Role.seed_roles(session)
+        await JobTypes.seed_types(session)
+        await MilestoneTypes.seed_types(session)
+        await MilestoneStatus.seed_status(session)
         await UserType.seed_types(session)
         await User.seed_users(session)
 

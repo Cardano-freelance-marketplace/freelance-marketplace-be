@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Dict
+from typing import List
 from beanie import Document
 from pydantic import BaseModel
 
@@ -14,16 +14,19 @@ class Image(BaseModel):
     file_type: str
     file_data: str
 
-class Portfolio(Document):
-    user_id: int
-    portfolio_id: int
+class Projects(Document):
+    images: List[Image]
+    attachments: List[Attachment]
     project_title: str
     description: str
     start_date: datetime
     completion_date: datetime
     tech_stack: List[str]
-    attachments: List[Dict[str, str]]
 
+class Portfolio(Document):
+    user_id: int
+    portfolio_id: int
+    projects: List[Projects]
 
     class Settings:
         collection = "portfolios"

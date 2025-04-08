@@ -1,6 +1,6 @@
 from enum import Enum
 
 class MilestoneStatus(Enum):
-    Draft = 0
-    In_Progress = 1
-    Completed = 2
+    DRAFT = 0
+    IN_PROGRESS = 1
+    COMPLETED = 2
