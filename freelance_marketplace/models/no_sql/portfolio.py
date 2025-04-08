@@ -3,7 +3,6 @@ from typing import List, Dict
 from beanie import Document
 from pydantic import BaseModel
 
-
 class Attachment(BaseModel):
     file_name: str
     file_type: str
@@ -24,7 +23,6 @@ class Portfolio(Document):
     completion_date: datetime
     tech_stack: List[str]
     attachments: List[Dict[str, str]]
-    wishlists: List[Document]
 
 
     class Settings:
