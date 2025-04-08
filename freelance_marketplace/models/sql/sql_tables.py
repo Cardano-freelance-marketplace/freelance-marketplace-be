@@ -32,6 +32,7 @@ class User(Base):
     is_deleted = Column(Boolean, nullable=False, default=False)
     wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
     wallet_type = Column(Enum(WalletType), nullable=False)
+    ## TODO add wallet Type table
     last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="SET NULL"), default=UserRole.User.value)
     type_id = Column(Integer, ForeignKey("user_types.type_id", ondelete="SET NULL"), default=UserTypeEnum.Freelancer_Client.value)
@@ -436,7 +437,7 @@ class Jobs(Base):
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     job_type_id = Column(Integer, ForeignKey("job_types.job_type_id", ondelete="SET NULL"), nullable=True)
     status = Column(Enum(JobStatus), nullable=False, default=JobStatus.Pending_Approval.value)
-
+    ## TODO add job status table
     # Relationships
     job_type = relationship("JobTypes", back_populates="jobs")
     client = relationship("User", foreign_keys=[client_id], back_populates="client_jobs")
