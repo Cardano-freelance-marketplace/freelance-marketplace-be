@@ -371,28 +371,35 @@ class Profiles(Base):
     @classmethod
     async def create(cls,
                      db: AsyncSession,
-                     wallet_public_address: str,
-                     wallet_type: WalletType,
-                     user_type: UserType,
+                     first_name: str,
+                     user_id: int,
+                     last_name: str,
+                     bio: str = None,
 
     ):
         try:
-            user = cls(
-                wallet_public_address=wallet_public_address,
-                wallet_type=wallet_type,
-                user_type=user_type,
+            profile = cls(
+                user_id=user_id,
+                first_name=first_name,
+                last_name=last_name,
+                bio=bio,
             )
-            db.add(user)
+            db.add(profile)
             await db.commit()
-            await db.refresh(user)
-            return user
+            await db.refresh(profile)
+            return profile
 
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
     @classmethod
-    async def edit(cls, db: AsyncSession, profile_id: int, data: dict):
+    async def edit(
+            cls,
+            db: AsyncSession,
+            profile_id: int,
+            data: dict
+    ):
         try:
             # Fetch the profile by ID
             query = await db.execute(select(cls).where(cls.profile_id == profile_id))

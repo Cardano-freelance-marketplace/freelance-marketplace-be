@@ -1,12 +1,8 @@
-from typing import List, Type, Any, Coroutine, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Result
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.routes.users.users_logic import UsersLogic
 from freelance_marketplace.db.sql.database import get_sql_db
-from freelance_marketplace.models.sql.models.userModel import UserModel
 from freelance_marketplace.models.sql.request_model.UserRequest import UserRequest
-from freelance_marketplace.models.sql.sql_tables import User
 
 router = APIRouter()
 
