@@ -2,13 +2,13 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean, ForeignKey, VARCHAR, Enum, Table, insert, TIMESTAMP, Float, ARRAY, \
     DECIMAL, select, CheckConstraint
 from freelance_marketplace.db.sql.database import Base
-from freelance_marketplace.models.enums.jobStatus import JobStatus
+from freelance_marketplace.models.enums.jobStatus import JobStatus as JobStatusEnum
 from freelance_marketplace.models.enums.jobType import JobType
 from freelance_marketplace.models.enums.milestoneType import MilestoneType
 from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus as MilestoneStatusEnum
 from freelance_marketplace.models.enums.userRole import UserRole
 from freelance_marketplace.models.enums.userType import UserType as UserTypeEnum
-from freelance_marketplace.models.enums.walletType import WalletType
+from freelance_marketplace.models.enums.walletType import WalletType as WalletTypeEnum
 from typing import List
 from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,8 +31,7 @@ class User(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     is_deleted = Column(Boolean, nullable=False, default=False)
     wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
-    wallet_type = Column(Enum(WalletType), nullable=False)
-    ## TODO add wallet Type table
+    wallet_type_id = Column(Integer, ForeignKey("wallet_types.wallet_type_id", ondelete="SET NULL"), default=WalletTypeEnum.Lace.value)
     last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="SET NULL"), default=UserRole.User.value)
     type_id = Column(Integer, ForeignKey("user_types.type_id", ondelete="SET NULL"), default=UserTypeEnum.Freelancer_Client.value)
@@ -48,7 +47,7 @@ class User(Base):
     profile = relationship("Profiles", back_populates="user", cascade="all, delete-orphan", uselist=False)
     proposals = relationship("Proposal", back_populates="freelancer", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="client")
-
+    wallet_type = relationship("WalletTypes", back_populates="users")
     received_reviews = relationship("Review", foreign_keys="[Review.reviewee_id]", back_populates="reviewee")
     given_reviews = relationship("Review", foreign_keys="[Review.reviewer_id]", back_populates="reviewer")
 
@@ -57,15 +56,15 @@ class User(Base):
     async def create(cls,
                      db: AsyncSession,
                      wallet_public_address: str,
-                     wallet_type: WalletType,
-                     user_type: UserTypeEnum,
+                     wallet_type_id: int = WalletTypeEnum.Lace.value,
+                     type_id: int = UserTypeEnum.Freelancer_Client.value,
 
     ):
         try:
             user = cls(
                 wallet_public_address=wallet_public_address,
-                wallet_type=wallet_type,
-                user_type=user_type,
+                wallet_type_id=wallet_type_id,
+                type_id=type_id,
             )
             db.add(user)
             await db.commit()
@@ -121,7 +120,7 @@ class User(Base):
     @classmethod
     async def seed_users(cls, db: AsyncSession) -> bool:
         default_users = [
-            {"wallet_public_address": "testewalletaddress123", "wallet_type": 'Lace', "type_id": UserTypeEnum.Freelancer_Client.value},
+            {"wallet_public_address": "testewalletaddress123", "wallet_type_id": 1, "type_id": UserTypeEnum.Freelancer_Client.value},
         ]
         try:
 
@@ -134,6 +133,52 @@ class User(Base):
 
             if new_users:
                 stmt = insert(cls).values(new_users)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+class WalletTypes(Base):
+    __tablename__ = "wallet_types"
+
+    wallet_type_id = Column(Integer, primary_key=True, autoincrement=True)
+    wallet_type_name = Column(VARCHAR(50), nullable=False)
+
+    users = relationship("User", back_populates="wallet_type")
+
+    @classmethod
+    async def seed_types(cls, db: AsyncSession) -> bool:
+        default_types = [
+            {"wallet_type_id": WalletTypeEnum.Lace.value, "wallet_type_name": WalletTypeEnum.Lace.name},
+            {"wallet_type_id": WalletTypeEnum.Yoroi.value, "wallet_type_name": WalletTypeEnum.Yoroi.name},
+            {"wallet_type_id": WalletTypeEnum.Daedalus.value, "wallet_type_name": WalletTypeEnum.Daedalus.name},
+            {"wallet_type_id": WalletTypeEnum.Nami.value, "wallet_type_name": WalletTypeEnum.Nami.name},
+            {"wallet_type_id": WalletTypeEnum.Flint.value, "wallet_type_name": WalletTypeEnum.Flint.name},
+            {"wallet_type_id": WalletTypeEnum.WalletConnect.value,
+             "wallet_type_name": WalletTypeEnum.WalletConnect.name},
+            {"wallet_type_id": WalletTypeEnum.Exodus.value, "wallet_type_name": WalletTypeEnum.Exodus.name},
+            {"wallet_type_id": WalletTypeEnum.AdaLite.value, "wallet_type_name": WalletTypeEnum.AdaLite.name},
+            {"wallet_type_id": WalletTypeEnum.CardanoWalletConnect.value,
+             "wallet_type_name": WalletTypeEnum.CardanoWalletConnect.name},
+            {"wallet_type_id": WalletTypeEnum.TrustWallet.value, "wallet_type_name": WalletTypeEnum.TrustWallet.name},
+            {"wallet_type_id": WalletTypeEnum.Typhon.value, "wallet_type_name": WalletTypeEnum.Typhon.name},
+            {"wallet_type_id": WalletTypeEnum.Blockfrost.value, "wallet_type_name": WalletTypeEnum.Blockfrost.name},
+            {"wallet_type_id": WalletTypeEnum.GeroWallet.value, "wallet_type_name": WalletTypeEnum.GeroWallet.name},
+        ]
+
+        try:
+            existing_types = await db.execute(
+                select(cls.wallet_type_id).where(cls.wallet_type_id.in_([m["wallet_type_id"] for m in default_types]))
+            )
+            existing_wallet_type_ids = {m[0] for m in existing_types.fetchall()}
+
+            new_types = [m for m in default_types if m["wallet_type_id"] not in existing_wallet_type_ids]
+
+            if new_types:
+                stmt = insert(cls).values(new_types)
                 await db.execute(stmt)
                 await db.commit()
 
@@ -436,10 +481,11 @@ class Jobs(Base):
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     job_type_id = Column(Integer, ForeignKey("job_types.job_type_id", ondelete="SET NULL"), nullable=True)
-    status = Column(Enum(JobStatus), nullable=False, default=JobStatus.Pending_Approval.value)
-    ## TODO add job status table
+    job_status_id = Column(Integer, ForeignKey("job_status.job_status_id", ondelete="SET NULL"), nullable=True)
+
     # Relationships
     job_type = relationship("JobTypes", back_populates="jobs")
+    job_status = relationship("JobStatus", back_populates="jobs")
     client = relationship("User", foreign_keys=[client_id], back_populates="client_jobs")
     freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_jobs")
     sub_category = relationship("SubCategory", back_populates="jobs")
@@ -498,6 +544,43 @@ class Jobs(Base):
             await db.refresh(job)
             return job
 
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+class JobStatus(Base):
+    __tablename__ = "job_status"
+    job_status_id = Column(Integer, primary_key=True, autoincrement=True)
+    job_status_name = Column(String(50), nullable=False)
+    job_status_description = Column(Text, nullable=False)
+
+    jobs = relationship("Jobs", back_populates="job_status")
+
+    @classmethod
+    async def seed_status(cls, db: AsyncSession) -> bool:
+        default_status = [
+            {"job_status_id": JobStatusEnum.PENDING_APPROVAL.value, "job_status_name": JobStatusEnum.PENDING_APPROVAL.name, "job_status_description": f"When a job of type request or service is created, needs to be approved by platform, to see if it follows ToS"},
+            {"job_status_id": JobStatusEnum.APPROVED.value, "job_status_name": JobStatusEnum.APPROVED.name, "job_status_description": f" Ready to be displayed on the platform"},
+            {"job_status_id": JobStatusEnum.DRAFT.value, "job_status_name": JobStatusEnum.DRAFT.name, "job_status_description": f"When a job has found a freelancer/client, and is approving milestones and rewards defined by the client/freelancer."},
+            {"job_status_id": JobStatusEnum.IN_PROGRESS.value, "job_status_name": JobStatusEnum.IN_PROGRESS.name, "job_status_description": f"After the job is created and the funds are allocated on the smart contract"},
+            {"job_status_id": JobStatusEnum.COMPLETED.value, "job_status_name": JobStatusEnum.COMPLETED.name, "job_status_description": f"When all milestones are completed"},
+            {"job_status_id": JobStatusEnum.CANCELED.value, "job_status_name": JobStatusEnum.CANCELED.name, "job_status_description": f"When Job is canceled by the client or the freelancer"},
+        ]
+        try:
+
+            existing_status = await db.execute(
+                select(cls.job_status_id).where(cls.job_status_id.in_([m["job_status_id"] for m in default_status]))
+            )
+            existing_job_status_ids = {m[0] for m in existing_status.fetchall()}
+
+            new_statuses = [m for m in default_status if m["job_status_id"] not in existing_job_status_ids]
+
+            if new_statuses:
+                stmt = insert(cls).values(new_statuses)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
