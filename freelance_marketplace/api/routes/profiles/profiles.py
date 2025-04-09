@@ -16,8 +16,8 @@ async def get_user_profile(
 @router.patch("/user/profile", tags=["profile"])
 async def update_user_profile(
         profile_data: ProfileRequest,
-        db: AsyncSession = Depends(get_sql_db),
-        user_id: int = Query(...)
+        user_id: int = Query(...),
+        db: AsyncSession = Depends(get_sql_db)
 ):
     return await ProfilesLogic.update(db=db, user_id=user_id, profile=profile_data)
 

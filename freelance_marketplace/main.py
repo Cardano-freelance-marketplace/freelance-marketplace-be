@@ -12,14 +12,13 @@ from dotenv import load_dotenv
 from freelance_marketplace.db.sql.database import init_db, AsyncSessionLocal
 from freelance_marketplace.db.no_sql.mongo import mongo_session
 from freelance_marketplace.api.routes.user_roles.user_roles import router as user_roles_router
-from freelance_marketplace.api.routes.user_types.user_types import router as user_types_router
 from freelance_marketplace.api.routes.profiles.profiles import router as profiles_router
 from freelance_marketplace.api.routes.portfolios.portfolio import router as portfolio_router
 from freelance_marketplace.api.routes.notifications.notifications import router as notifications_router
 from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
-from freelance_marketplace.models.sql.sql_tables import Role, User, UserType, JobTypes, MilestoneTypes, MilestoneStatus, \
-    WalletTypes, JobStatus
+from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneStatus, WalletTypes, RequestStatus, \
+    ServiceStatus
 
 load_dotenv()
 origins = ['*', "http://localhost:4200"]
@@ -51,7 +50,6 @@ app.include_router(user_roles_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
 app.include_router(profiles_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
-app.include_router(user_types_router, prefix="/api/v1")
 app.include_router(portfolio_router, prefix="/api/v1")
 
 
@@ -61,12 +59,10 @@ async def startup():
     await mongo_session.init_mongo()
     async with AsyncSessionLocal() as session:
         await Role.seed_roles(session)
-        await JobTypes.seed_types(session)
-        await MilestoneTypes.seed_types(session)
         await MilestoneStatus.seed_status(session)
         await WalletTypes.seed_types(session)
-        await JobStatus.seed_status(session)
-        await UserType.seed_types(session)
+        await RequestStatus.seed_status(session)
+        await ServiceStatus.seed_status(session)
         await User.seed_users(session)
 
 @app.on_event("shutdown")

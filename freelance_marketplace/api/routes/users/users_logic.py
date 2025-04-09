@@ -1,7 +1,7 @@
-from typing import Type, List, Any, Coroutine, Sequence
+from typing import Sequence
 
 from fastapi import HTTPException
-from sqlalchemy import delete, update, select, Result
+from sqlalchemy import delete, update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.models.sql.request_model.UserRequest import UserRequest
 from freelance_marketplace.models.sql.sql_tables import User
@@ -81,14 +81,25 @@ class UsersLogic:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
     @staticmethod
-    async def get_user_by_job(
+    async def get_user_by_service(
             db: AsyncSession,
-            job_id: int,
+            service_id: int,
     ):
         ##TODO Create get user by job
         # job = await db.execute(select(Job.job_id == job_id))
         # if not job:
         #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")
         # users = [job.freelancer_id, job.client_id]
-        #
+        raise HTTPException(status_code=500, detail="This feature is not implemented yet")
+
+    @staticmethod
+    async def get_user_by_request(
+            db: AsyncSession,
+            request_id: int,
+    ):
+        ##TODO Create get user by job
+        # job = await db.execute(select(Job.job_id == job_id))
+        # if not job:
+        #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")
+        # users = [job.freelancer_id, job.client_id]
         raise HTTPException(status_code=500, detail="This feature is not implemented yet")

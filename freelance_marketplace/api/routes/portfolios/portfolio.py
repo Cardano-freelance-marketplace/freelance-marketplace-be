@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Query, HTTPException
-
 from freelance_marketplace.db.no_sql.mongo import Mongo
 from freelance_marketplace.models.no_sql.portfolio import Portfolio
 from freelance_marketplace.models.no_sql.request_models.portfolioRequest import PortfolioRequest
@@ -9,9 +8,11 @@ router = APIRouter()
 @router.post("/user/portfolio", tags=["portfolio"])
 async def create_portfolio(
         portfolio: Portfolio,
+        user_id: int = Query(...)
 ) -> bool:
+
     ##Check if user already has a portfolio
-    if await Portfolio.find_one(Portfolio.user_id == portfolio.user_id):
+    if await Portfolio.find_one(Portfolio.user_id == user_id):
         raise HTTPException(status_code=400, detail="User already has a Portfolio")
 
     await portfolio.create()

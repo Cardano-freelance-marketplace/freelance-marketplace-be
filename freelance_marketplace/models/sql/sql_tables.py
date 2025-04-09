@@ -2,18 +2,18 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean, ForeignKey, VARCHAR, Table, insert, TIMESTAMP, Float, ARRAY, \
     DECIMAL, select, CheckConstraint
 from freelance_marketplace.db.sql.database import Base
-from freelance_marketplace.models.enums.jobStatus import JobStatus as JobStatusEnum
-from freelance_marketplace.models.enums.jobType import JobType
-from freelance_marketplace.models.enums.milestoneType import MilestoneType
 from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus as MilestoneStatusEnum
 from freelance_marketplace.models.enums.userRole import UserRole
-from freelance_marketplace.models.enums.userType import UserType as UserTypeEnum
 from freelance_marketplace.models.enums.walletType import WalletType as WalletTypeEnum
 from typing import List
 from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship, Mapped
 from starlette.exceptions import HTTPException
+from freelance_marketplace.models.enums.requestStatus import RequestStatus as RequestStatusEnum
+from freelance_marketplace.models.enums.proposalStatus import ProposalStatus as ProposalStatusEnum
+from freelance_marketplace.models.enums.serviceStatus import ServiceStatus as ServiceStatusEnum
+from freelance_marketplace.models.enums.requestStatus import RequestStatus as RequestStatusEnum
 
 profile_skills = Table(
     "profile_skills",
@@ -34,19 +34,27 @@ class User(Base):
     wallet_type_id = Column(Integer, ForeignKey("wallet_types.wallet_type_id", ondelete="SET NULL"), default=WalletTypeEnum.Lace.value)
     last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="SET NULL"), default=UserRole.User.value)
-    type_id = Column(Integer, ForeignKey("user_types.type_id", ondelete="SET NULL"), default=UserTypeEnum.Freelancer_Client.value)
 
-    client_jobs = relationship("Jobs", foreign_keys="[Jobs.client_id]", back_populates="client")
-    freelancer_jobs = relationship("Jobs", foreign_keys="[Jobs.freelancer_id]", back_populates="freelancer")
-    client_milestones = relationship("Milestones", foreign_keys="[Milestones.client_id]", back_populates="client")
-    freelancer_milestones = relationship("Milestones", foreign_keys="[Milestones.freelancer_id]", back_populates="freelancer")
+    freelancer_order_milestones = relationship("Milestones",  foreign_keys=lambda: [Milestones.freelancer_id], back_populates="freelancers_orders")
+    client_order_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.client_id], back_populates="clients_orders")
+
+    freelancer_proposal_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.freelancer_id], back_populates="freelancers_proposals")
+    client_proposal_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.client_id], back_populates="clients_proposals")
+
+    freelancer_service_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.freelancer_id], back_populates="freelancers_services")
+    client_service_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.client_id], back_populates="clients_services")
+
+    freelancer_request_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.freelancer_id], back_populates="freelancers_requests")
+    client_request_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.client_id], back_populates="clients_requests")
+
     client_transactions = relationship("Transaction", foreign_keys="[Transaction.client_id]", back_populates="client")
     freelancer_transactions = relationship("Transaction", foreign_keys="[Transaction.freelancer_id]", back_populates="freelancer")
     role = relationship("Role", back_populates="users")
-    type = relationship("UserType", back_populates="users")
     profile = relationship("Profiles", back_populates="user", cascade="all, delete-orphan", uselist=False)
     proposals = relationship("Proposal", back_populates="freelancer", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="client")
+    requests = relationship("Requests", back_populates="client")
+    services = relationship("Services", back_populates="freelancer")
     wallet_type = relationship("WalletTypes", back_populates="users")
     received_reviews = relationship("Review", foreign_keys="[Review.reviewee_id]", back_populates="reviewee")
     given_reviews = relationship("Review", foreign_keys="[Review.reviewer_id]", back_populates="reviewer")
@@ -57,14 +65,12 @@ class User(Base):
                      db: AsyncSession,
                      wallet_public_address: str,
                      wallet_type_id: int = WalletTypeEnum.Lace.value,
-                     type_id: int = UserTypeEnum.Freelancer_Client.value,
 
     ):
         try:
             user = cls(
                 wallet_public_address=wallet_public_address,
                 wallet_type_id=wallet_type_id,
-                type_id=type_id,
             )
             db.add(user)
             await db.commit()
@@ -120,7 +126,7 @@ class User(Base):
     @classmethod
     async def seed_users(cls, db: AsyncSession) -> bool:
         default_users = [
-            {"wallet_public_address": "testewalletaddress123", "wallet_type_id": 1, "type_id": UserTypeEnum.Freelancer_Client.value},
+            {"wallet_public_address": "testewalletaddress123", "wallet_type_id": 1}
         ]
         try:
 
@@ -244,6 +250,7 @@ class Role(Base):
     role_id = Column(Integer, primary_key=True, autoincrement=True)
     role_name = Column(String(50), nullable=False, unique=True)
     role_description = Column(Text, nullable=True)
+
     users = relationship("User", back_populates="role")
 
     @classmethod
@@ -308,86 +315,6 @@ class Role(Base):
 
             if new_roles:
                 stmt = insert(cls).values(new_roles)
-                await db.execute(stmt)
-                await db.commit()
-
-            return True
-        except Exception as e:
-            await db.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
-
-class UserType(Base):
-    __tablename__ = "user_types"
-
-    type_id = Column(Integer, primary_key=True, autoincrement=True)
-    type_name = Column(String(50), nullable=False, unique=True)
-    type_description = Column(Text, nullable=True)
-    users = relationship("User", back_populates="type")
-
-    @classmethod
-    async def create(cls,
-                     db: AsyncSession,
-                     type_name: str,
-                     type_description: str,
-                     type_id: int = None
-    ):
-        try:
-            type = cls(
-                type_id=type_id,
-                type_name=type_name,
-                type_description=type_description,
-            )
-            db.add(type)
-            await db.commit()
-            await db.refresh(type)
-            return type
-
-        except Exception as e:
-            await db.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @classmethod
-    async def edit(cls, db: AsyncSession, type_id: int, data: dict):
-        try:
-            # Fetch the type by ID
-            query = await db.execute(select(cls).where(cls.type_id == type_id))
-            type = query.scalars().first()
-
-            if not type:
-                raise HTTPException(status_code=404, detail="Role not found")
-
-            # Update fields dynamically
-            for key, value in data.items():
-                if hasattr(type, key) and value is not None:
-                    setattr(type, key, value)
-
-            await db.commit()
-            await db.refresh(type)
-            return type
-
-        except Exception as e:
-            await db.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @classmethod
-    async def seed_types(cls, db: AsyncSession) -> bool:
-        default_types = [
-            {"type_id": UserTypeEnum.Freelancer_Client.value, "type_name": UserTypeEnum.Freelancer_Client.name, "type_description": f"{UserTypeEnum.Freelancer_Client.name} type"},
-            {"type_id": UserTypeEnum.Client.value, "type_name": UserTypeEnum.Client.name, "type_description": f"{UserTypeEnum.Client.name} type"},
-            {"type_id": UserTypeEnum.Freelancer.value, "type_name": UserTypeEnum.Freelancer.name, "type_description": f"{UserTypeEnum.Freelancer.name} type"},
-            {"type_id": UserTypeEnum.Unknown.value, "type_name": UserTypeEnum.Unknown.name, "type_description": f"{UserTypeEnum.Unknown.name} type"},
-        ]
-        try:
-
-            existing_types = await db.execute(
-                select(cls.type_id).where(cls.type_id.in_([m["type_id"] for m in default_types]))
-            )
-            existing_type_ids = {m[0] for m in existing_types.fetchall()}
-
-            new_types = [m for m in default_types if m["type_id"] not in existing_type_ids]
-
-            if new_types:
-                stmt = insert(cls).values(new_types)
                 await db.execute(stmt)
                 await db.commit()
 
@@ -468,31 +395,27 @@ class Profiles(Base):
             raise HTTPException(status_code=500, detail=str(e))
 
 
-class Jobs(Base):
-    __tablename__ = "jobs"
+class Requests(Base):
+    __tablename__ = "requests"
 
-    job_id = Column(Integer, primary_key=True, autoincrement=True)
+    request_id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(50), nullable=False)
     description = Column(Text, nullable=False)
     sub_category_id = Column(Integer, ForeignKey("sub_categories.sub_category_id", ondelete='SET NULL'), nullable=False)
     total_price = Column(Float, nullable=True)
     tags = Column(ARRAY(String), nullable=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
-    freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
-    job_type_id = Column(Integer, ForeignKey("job_types.job_type_id", ondelete="SET NULL"), nullable=True)
-    job_status_id = Column(Integer, ForeignKey("job_status.job_status_id", ondelete="SET NULL"), nullable=True)
+    request_status_id = Column(Integer, ForeignKey("request_status.request_status_id", ondelete="SET NULL"), nullable=True)
 
     # Relationships
-    job_type = relationship("JobTypes", back_populates="jobs")
-    job_status = relationship("JobStatus", back_populates="jobs")
-    client = relationship("User", foreign_keys=[client_id], back_populates="client_jobs")
-    freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_jobs")
-    sub_category = relationship("SubCategory", back_populates="jobs")
-    milestones = relationship("Milestones", back_populates="job", cascade="all, delete-orphan")
-    proposals = relationship("Proposal", back_populates="job", cascade="all, delete-orphan")
-    orders = relationship("Order", back_populates="job", cascade="all, delete-orphan")
+    request_status = relationship("RequestStatus", back_populates="requests")
+    client = relationship("User", foreign_keys=[client_id], back_populates="requests")
+    sub_category = relationship("SubCategory", back_populates="requests")
+    milestones = relationship("Milestones", back_populates="request", cascade="all, delete-orphan")
+    proposals = relationship("Proposal", back_populates="request", cascade="all, delete-orphan")
 
     @classmethod
     async def create(cls,
@@ -504,10 +427,10 @@ class Jobs(Base):
                      tags: list,
                      client_id: int,
                      freelancer_id: int,
-                     job_type: int
+                     request_type: int
      ):
         try:
-            job = cls(
+            request = cls(
                 title=title,
                 description=description,
                 sub_category_id=sub_category_id,
@@ -515,66 +438,65 @@ class Jobs(Base):
                 tags=tags,
                 client_id=client_id,
                 freelancer_id=freelancer_id,
-                type=job_type
+                type=request_type
             )
-            db.add(job)
+            db.add(request)
             await db.commit()
-            await db.refresh(job)
-            return job
+            await db.refresh(request)
+            return request
 
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
     @classmethod
-    async def edit(cls, db: AsyncSession, job_id: int, data: dict):
+    async def edit(cls, db: AsyncSession, request_id: int, data: dict):
         try:
-            # Fetch the job by ID
-            query = await db.execute(select(cls).where(cls.job_id == job_id))
-            job = query.scalars().first()
+            # Fetch the request by ID
+            query = await db.execute(select(cls).where(cls.request_id == request_id))
+            request = query.scalars().first()
 
-            if not job:
-                raise HTTPException(status_code=404, detail="Job not found")
+            if not request:
+                raise HTTPException(status_code=404, detail="Request not found")
 
             # Update fields dynamically
             for key, value in data.items():
-                if hasattr(job, key) and value is not None:
-                    setattr(job, key, value)
+                if hasattr(request, key) and value is not None:
+                    setattr(request, key, value)
 
             await db.commit()
-            await db.refresh(job)
-            return job
+            await db.refresh(request)
+            return request
 
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-class JobStatus(Base):
-    __tablename__ = "job_status"
-    job_status_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_status_name = Column(String(50), nullable=False)
-    job_status_description = Column(Text, nullable=False)
+class RequestStatus(Base):
+    __tablename__ = "request_status"
+    request_status_id = Column(Integer, primary_key=True, autoincrement=True)
+    request_status_name = Column(String(50), nullable=False)
+    request_status_description = Column(Text, nullable=False)
 
-    jobs = relationship("Jobs", back_populates="job_status")
+    requests = relationship("Requests", back_populates="request_status")
 
     @classmethod
     async def seed_status(cls, db: AsyncSession) -> bool:
         default_status = [
-            {"job_status_id": JobStatusEnum.PENDING_APPROVAL.value, "job_status_name": JobStatusEnum.PENDING_APPROVAL.name, "job_status_description": f"When a job of type request or service is created, needs to be approved by platform, to see if it follows ToS"},
-            {"job_status_id": JobStatusEnum.APPROVED.value, "job_status_name": JobStatusEnum.APPROVED.name, "job_status_description": f" Ready to be displayed on the platform"},
-            {"job_status_id": JobStatusEnum.DRAFT.value, "job_status_name": JobStatusEnum.DRAFT.name, "job_status_description": f"When a job has found a freelancer/client, and is approving milestones and rewards defined by the client/freelancer."},
-            {"job_status_id": JobStatusEnum.IN_PROGRESS.value, "job_status_name": JobStatusEnum.IN_PROGRESS.name, "job_status_description": f"After the job is created and the funds are allocated on the smart contract"},
-            {"job_status_id": JobStatusEnum.COMPLETED.value, "job_status_name": JobStatusEnum.COMPLETED.name, "job_status_description": f"When all milestones are completed"},
-            {"job_status_id": JobStatusEnum.CANCELED.value, "job_status_name": JobStatusEnum.CANCELED.name, "job_status_description": f"When Job is canceled by the client or the freelancer"},
+            {"request_status_id": RequestStatusEnum.CANCELED.value, "request_status_name": RequestStatusEnum.CANCELED.name, "request_status_description": f""},
+            {"request_status_id": RequestStatusEnum.DRAFT.value, "request_status_name": RequestStatusEnum.DRAFT.name, "request_status_description": f""},
+            {"request_status_id": RequestStatusEnum.REQUESTING_FREELANCER.value, "request_status_name": RequestStatusEnum.REQUESTING_FREELANCER.name, "request_status_description": f""},
+            {"request_status_id": RequestStatusEnum.IN_PROGRESS.value, "request_status_name": RequestStatusEnum.IN_PROGRESS.name, "request_status_description": f""},
+            {"request_status_id": RequestStatusEnum.COMPLETED.value, "request_status_name": RequestStatusEnum.COMPLETED.name, "request_status_description": f""},
         ]
         try:
 
             existing_status = await db.execute(
-                select(cls.job_status_id).where(cls.job_status_id.in_([m["job_status_id"] for m in default_status]))
+                select(cls.request_status_id).where(cls.request_status_id.in_([m["request_status_id"] for m in default_status]))
             )
-            existing_job_status_ids = {m[0] for m in existing_status.fetchall()}
+            existing_request_status_ids = {m[0] for m in existing_status.fetchall()}
 
-            new_statuses = [m for m in default_status if m["job_status_id"] not in existing_job_status_ids]
+            new_statuses = [m for m in default_status if m["request_status_id"] not in existing_request_status_ids]
 
             if new_statuses:
                 stmt = insert(cls).values(new_statuses)
@@ -586,31 +508,105 @@ class JobStatus(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-class JobTypes(Base):
-    __tablename__ = "job_types"
-    job_type_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_type_name = Column(String(50), nullable=False)
-    job_type_description = Column(Text, nullable=False)
+class Services(Base):
+    __tablename__ = "services"
 
-    jobs = relationship("Jobs", back_populates="job_type")
+    service_id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(50), nullable=False)
+    description = Column(Text, nullable=False)
+    sub_category_id = Column(Integer, ForeignKey("sub_categories.sub_category_id", ondelete='SET NULL'), nullable=False)
+    total_price = Column(Float, nullable=True)
+    tags = Column(ARRAY(String), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    service_status_id = Column(Integer, ForeignKey("service_status.service_status_id", ondelete="SET NULL"), nullable=True)
+
+    # Relationships
+    status = relationship("ServiceStatus", back_populates="services")
+    freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="services")
+    sub_category = relationship("SubCategory", back_populates="services")
+    milestones = relationship("Milestones", back_populates="service", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="service", cascade="all, delete-orphan")
 
     @classmethod
-    async def seed_types(cls, db: AsyncSession) -> bool:
-        default_types = [
-            {"job_type_id": JobType.REQUEST.value, "job_type_name": JobType.REQUEST.name, "job_type_description": f"Job of type request is a job created by a client looking for a freelancer to complete the work"},
-            {"job_type_id": JobType.SERVICE.value, "job_type_name": JobType.SERVICE.name, "job_type_description": f"Job of type service is a job created by a freelancer, so that clients can order the freelancer's work"},
+    async def create(cls,
+                     db: AsyncSession,
+                     title: str,
+                     description: str,
+                     sub_category_id: int,
+                     total_price: float,
+                     tags: list,
+                     freelancer_id: int,
+     ):
+        try:
+            service = cls(
+                title=title,
+                description=description,
+                sub_category_id=sub_category_id,
+                total_price=total_price,
+                tags=tags,
+                freelancer_id=freelancer_id,
+            )
+            db.add(service)
+            await db.commit()
+            await db.refresh(service)
+            return service
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def edit(cls, db: AsyncSession, service_id: int, data: dict):
+        try:
+            # Fetch the service by ID
+            query = await db.execute(select(cls).where(cls.service_id == service_id))
+            service = query.scalars().first()
+
+            if not service:
+                raise HTTPException(status_code=404, detail="Service not found")
+
+            # Update fields dynamically
+            for key, value in data.items():
+                if hasattr(service, key) and value is not None:
+                    setattr(service, key, value)
+
+            await db.commit()
+            await db.refresh(service)
+            return service
+
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+class ServiceStatus(Base):
+    __tablename__ = "service_status"
+    service_status_id = Column(Integer, primary_key=True, autoincrement=True)
+    service_status_name = Column(String(50), nullable=False)
+    service_status_description = Column(Text, nullable=False)
+
+    services = relationship("Services", back_populates="status")
+
+    @classmethod
+    async def seed_status(cls, db: AsyncSession) -> bool:
+        default_status = [
+            {"service_status_id": ServiceStatusEnum.CANCELED.value, "service_status_name": ServiceStatusEnum.CANCELED.name, "service_status_description": f""},
+            {"service_status_id": ServiceStatusEnum.DRAFT.value, "service_status_name": ServiceStatusEnum.DRAFT.name, "service_status_description": f""},
+            {"service_status_id": ServiceStatusEnum.AVAILABLE.value, "service_status_name": ServiceStatusEnum.AVAILABLE.name, "service_status_description": f""},
+            {"service_status_id": ServiceStatusEnum.CLOSED.value, "service_status_name": ServiceStatusEnum.CLOSED.name, "service_status_description": f""},
         ]
         try:
 
-            existing_types = await db.execute(
-                select(cls.job_type_id).where(cls.job_type_id.in_([m["job_type_id"] for m in default_types]))
+            existing_status = await db.execute(
+                select(cls.service_status_id).where(cls.service_status_id.in_([m["service_status_id"] for m in default_status]))
             )
-            existing_job_type_ids = {m[0] for m in existing_types.fetchall()}
+            existing_service_status_ids = {m[0] for m in existing_status.fetchall()}
 
-            new_types = [m for m in default_types if m["job_type_id"] not in existing_job_type_ids]
+            new_statuses = [m for m in default_status if m["service_status_id"] not in existing_service_status_ids]
 
-            if new_types:
-                stmt = insert(cls).values(new_types)
+            if new_statuses:
+                stmt = insert(cls).values(new_statuses)
                 await db.execute(stmt)
                 await db.commit()
 
@@ -623,33 +619,54 @@ class Milestones(Base):
     __tablename__ = "milestones"
 
     milestone_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_id = Column(Integer, ForeignKey("jobs.job_id", ondelete="CASCADE"), nullable=False)
-    milestone_tx_hash = Column(String(4096), nullable=False)
+
+    proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=True)
+    order_id = Column(Integer, ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=True)
+    service_id = Column(Integer, ForeignKey("services.service_id", ondelete="CASCADE"), nullable=True)
+    request_id = Column(Integer, ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=True)
+
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
+
+    milestone_tx_hash = Column(String(4096), nullable=False)
     milestone_text = Column(Text, nullable=False)
     reward_amount = Column(Float, nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     client_approved = Column(Boolean, nullable=False, default=False)
     freelancer_approved = Column(Boolean, nullable=False, default=False)
-    milestone_type_id = Column(Integer, ForeignKey("milestone_types.milestone_type_id", ondelete="SET NULL"), nullable=True)
     milestone_status_id = Column(Integer, ForeignKey("milestone_status.milestone_status_id", ondelete="SET NULL"), nullable=True)
-    order_id = Column(Integer, ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=True, unique=True)
-    proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=True, unique=True)
 
     __table_args__ = (
         CheckConstraint(
-            "(order_id IS NOT NULL AND proposal_id IS NULL) OR (order_id IS NULL AND proposal_id IS NOT NULL)",
-            name="check_milestone_has_one_parent"
+            """
+            (
+                (proposal_id IS NOT NULL)::int +
+                (order_id IS NOT NULL)::int +
+                (service_id IS NOT NULL)::int +
+                (request_id IS NOT NULL)::int
+            ) = 1
+            """,
+            name="check_only_one_parent"
         ),
     )
     # Relationships
-    milestone_type = relationship("MilestoneTypes", back_populates="milestones")
     milestone_status = relationship("MilestoneStatus", back_populates="milestones")
-    job = relationship("Jobs", back_populates="milestones")
-    client = relationship("User", foreign_keys=[client_id], back_populates="client_milestones")
-    freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="freelancer_milestones")
+
+    freelancers_orders = relationship("User", foreign_keys=[client_id], back_populates="freelancer_order_milestones")
+    clients_orders = relationship("User", foreign_keys=[freelancer_id], back_populates="client_order_milestones")
+
+    freelancers_proposals = relationship("User", foreign_keys=[client_id], back_populates="freelancer_proposal_milestones")
+    clients_proposals = relationship("User", foreign_keys=[freelancer_id], back_populates="client_proposal_milestones")
+
+    freelancers_requests = relationship("User", foreign_keys=[client_id], back_populates="freelancer_request_milestones")
+    clients_requests = relationship("User", foreign_keys=[freelancer_id], back_populates="client_request_milestones")
+
+    freelancers_services = relationship("User", foreign_keys=[client_id], back_populates="freelancer_service_milestones")
+    clients_services = relationship("User", foreign_keys=[freelancer_id], back_populates="client_service_milestones")
+
+    request = relationship("Requests", back_populates="milestones")
+    service = relationship("Services", back_populates="milestones")
     order = relationship("Order", back_populates="milestones")
     proposal = relationship("Proposal", back_populates="milestones")
     transaction = relationship("Transaction", back_populates="milestone")
@@ -657,25 +674,29 @@ class Milestones(Base):
     @classmethod
     async def create(cls,
                      db: AsyncSession,
-                     job_id: int,
                      milestone_tx_hash: str,
                      client_id: int,
                      freelancer_id: int,
                      milestone_text: str,
                      reward_amount: float,
                      milestone_status_id: int = MilestoneStatusEnum.DRAFT.value,
-                     milestone_type_id: int = MilestoneType.REQUEST.value
+                     proposal_id: int = None,
+                     order_id: int = None,
+                     service_id: int = None,
+                     request_id: int = None,
                      ):
         try:
             milestone = cls(
-                job_id=job_id,
+                proposal_id=proposal_id,
+                order_id=order_id,
+                service_id=service_id,
+                request_id=request_id,
                 milestone_tx_hash=milestone_tx_hash,
                 client_id=client_id,
                 freelancer_id=freelancer_id,
                 milestone_text=milestone_text,
                 reward_amount=reward_amount,
                 milestone_status_id=milestone_status_id,
-                milestone_type_id=milestone_type_id
             )
             db.add(milestone)
             await db.commit()
@@ -705,39 +726,6 @@ class Milestones(Base):
             await db.refresh(milestone)
             return milestone
 
-        except Exception as e:
-            await db.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
-
-class MilestoneTypes(Base):
-    __tablename__ = "milestone_types"
-    milestone_type_id = Column(Integer, primary_key=True, autoincrement=True)
-    milestone_type_name = Column(String(50), nullable=False)
-    milestone_type_description = Column(Text, nullable=False)
-
-    milestones = relationship("Milestones", back_populates="milestone_type")
-
-    @classmethod
-    async def seed_types(cls, db: AsyncSession) -> bool:
-        default_types = [
-            {"milestone_type_id": MilestoneType.REQUEST.value, "milestone_type_name": MilestoneType.REQUEST.name, "milestone_type_description": f"Milestone of type request is a milestone created by a client looking for a freelancer to complete the work"},
-            {"milestone_type_id": MilestoneType.SERVICE.value, "milestone_type_name": MilestoneType.SERVICE.name, "milestone_type_description": f"Milestone of type service is a milestone created by a freelancer, so that clients can order the freelancer's work"},
-        ]
-        try:
-
-            existing_types = await db.execute(
-                select(cls.milestone_type_id).where(cls.milestone_type_id.in_([m["milestone_type_id"] for m in default_types]))
-            )
-            existing_milestone_type_ids = {m[0] for m in existing_types.fetchall()}
-
-            new_types = [m for m in default_types if m["milestone_type_id"] not in existing_milestone_type_ids]
-
-            if new_types:
-                stmt = insert(cls).values(new_types)
-                await db.execute(stmt)
-                await db.commit()
-
-            return True
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -782,24 +770,24 @@ class Proposal(Base):
     __tablename__ = "proposals"
 
     proposal_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_id = Column(Integer, ForeignKey("jobs.job_id", ondelete="CASCADE"), nullable=False)
+    requests_id = Column(Integer, ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
 
     # Relationships
-    job = relationship("Jobs", back_populates="proposals")
+    request = relationship("Requests", back_populates="proposals")
     freelancer = relationship("User", back_populates="proposals")
     milestones = relationship("Milestones", back_populates="proposal", cascade="all, delete-orphan")
 
     @classmethod
     async def create(cls,
                      db: AsyncSession,
-                     job_id: int,
+                     proposal_id: int,
                      freelancer_id: int,
                      milestone_id: int = None
                      ):
         try:
             proposal = cls(
-                job_id=job_id,
+                proposal_id=proposal_id,
                 freelancer_id=freelancer_id,
                 milestone_id=milestone_id
             )
@@ -835,37 +823,30 @@ class Proposal(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-class OrderMilestones(Base):
-    __tablename__ = "order_milestones"
-
-    order_id = Column(Integer, ForeignKey("orders.order_id", ondelete="CASCADE"), primary_key=True)
-    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id", ondelete="CASCADE"), primary_key=True)
-
-
 class Order(Base):
     __tablename__ = "orders"
 
     order_id = Column(Integer, primary_key=True, autoincrement=True)
-    job_id = Column(Integer, ForeignKey("jobs.job_id", ondelete="CASCADE"), nullable=False)
+    service_id = Column(Integer, ForeignKey("services.service_id", ondelete="CASCADE"), nullable=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     # Relationships
-    job = relationship("Jobs", back_populates="orders")
+    service = relationship("Services", back_populates="orders")
     milestones = relationship("Milestones", back_populates="order", cascade="all, delete-orphan")
     client = relationship("User", back_populates="orders")
 
     @classmethod
     async def create(cls,
                      db: AsyncSession,
-                     job_id: int,
+                     service_id: int,
                      client_id: int,
                      milestone_id: int = None
                      ):
         try:
             order = cls(
-                job_id=job_id,
+                service_id=service_id,
                 client_id=client_id,
                 milestone_id=milestone_id
             )
@@ -1034,7 +1015,8 @@ class SubCategory(Base):
     category_id = Column(Integer, ForeignKey("categories.category_id", ondelete="CASCADE"), nullable=False)
 
     category = relationship("Category", back_populates="sub_categories")
-    jobs = relationship("Jobs", back_populates="sub_category", cascade="all, delete-orphan")
+    services = relationship("Services", back_populates="sub_category", cascade="all, delete-orphan")
+    requests = relationship("Requests", back_populates="sub_category", cascade="all, delete-orphan")
 
     @classmethod
     async def create(cls,

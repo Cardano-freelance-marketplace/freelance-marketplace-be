@@ -1,15 +1,12 @@
-from typing import Optional, Any, Coroutine
-
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from pymongo.results import DeleteResult
-
 from freelance_marketplace.api.utils.data_manipulation_utils import get_object_id
 from freelance_marketplace.db.no_sql.mongo import Mongo
 from freelance_marketplace.models.no_sql.notification import Notification
 
 router = APIRouter()
 
-@router.post("/notification", tags=["notifications"])
+@router.post("/user/notification", tags=["notifications"])
 async def create_notification(
         notification: Notification
   ) -> bool:
