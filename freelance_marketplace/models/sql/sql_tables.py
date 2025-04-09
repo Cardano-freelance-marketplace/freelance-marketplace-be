@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, ForeignKey, VARCHAR, Enum, Table, insert, TIMESTAMP, Float, ARRAY, \
+from sqlalchemy import Boolean, ForeignKey, VARCHAR, Table, insert, TIMESTAMP, Float, ARRAY, \
     DECIMAL, select, CheckConstraint
 from freelance_marketplace.db.sql.database import Base
 from freelance_marketplace.models.enums.jobStatus import JobStatus as JobStatusEnum
@@ -405,6 +405,7 @@ class Profiles(Base):
     first_name = Column(VARCHAR(50), nullable=False)
     last_name = Column(VARCHAR(50), nullable=False)
     bio = Column(VARCHAR(1000), nullable=True)
+    profile_picture = Column(VARCHAR(1000), nullable=True)
 
     ##MANY TO MANY
     skills: Mapped[List[Skills]] = relationship(
