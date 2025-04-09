@@ -619,7 +619,7 @@ class Milestones(Base):
     __tablename__ = "milestones"
 
     milestone_id = Column(Integer, primary_key=True, autoincrement=True)
-
+    ## TODO change proposal and order to a many-to-many relationship
     proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=True)
     order_id = Column(Integer, ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=True)
     service_id = Column(Integer, ForeignKey("services.service_id", ondelete="CASCADE"), nullable=True)
