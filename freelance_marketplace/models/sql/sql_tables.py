@@ -1,6 +1,10 @@
 from datetime import datetime, timezone
+
+from asyncpg import UniqueViolationError
 from sqlalchemy import Boolean, ForeignKey, VARCHAR, Table, insert, TIMESTAMP, Float, ARRAY, \
     DECIMAL, select
+from sqlalchemy.exc import IntegrityError
+
 from freelance_marketplace.db.sql.database import Base
 from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus as MilestoneStatusEnum
 from freelance_marketplace.models.enums.userRole import UserRole
@@ -105,6 +109,11 @@ class User(Base):
             await db.refresh(user)
             return user
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -148,6 +157,11 @@ class User(Base):
             await db.refresh(user)
             return True
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -171,6 +185,12 @@ class User(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -217,6 +237,12 @@ class WalletTypes(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -246,6 +272,11 @@ class Skills(Base):
             await db.refresh(skill)
             return skill
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -268,6 +299,11 @@ class Skills(Base):
             await db.commit()
             await db.refresh(skill)
             return skill
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -301,6 +337,11 @@ class Role(Base):
             await db.refresh(role)
             return role
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -323,6 +364,11 @@ class Role(Base):
             await db.commit()
             await db.refresh(role)
             return role
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -349,6 +395,12 @@ class Role(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -394,6 +446,11 @@ class Profiles(Base):
             await db.refresh(profile)
             return profile
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -421,6 +478,11 @@ class Profiles(Base):
             await db.commit()
             await db.refresh(profile)
             return profile
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -475,6 +537,11 @@ class Requests(Base):
             await db.refresh(request)
             return request
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -497,6 +564,11 @@ class Requests(Base):
             await db.commit()
             await db.refresh(request)
             return request
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -534,6 +606,12 @@ class RequestStatus(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -583,6 +661,11 @@ class Services(Base):
             await db.refresh(service)
             return service
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -605,6 +688,11 @@ class Services(Base):
             await db.commit()
             await db.refresh(service)
             return service
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -641,6 +729,12 @@ class ServiceStatus(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -715,6 +809,11 @@ class Milestones(Base):
             await db.refresh(milestone)
             return milestone
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -737,6 +836,11 @@ class Milestones(Base):
             await db.commit()
             await db.refresh(milestone)
             return milestone
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -772,6 +876,12 @@ class MilestoneStatus(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -812,6 +922,11 @@ class Proposal(Base):
             await db.refresh(proposal)
             return proposal
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -834,6 +949,12 @@ class Proposal(Base):
             await db.commit()
             await db.refresh(proposal)
             return proposal
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
 
         except Exception as e:
             await db.rollback()
@@ -873,6 +994,12 @@ class ProposalStatus(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -911,6 +1038,11 @@ class Order(Base):
             await db.refresh(order)
             return order
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -934,6 +1066,11 @@ class Order(Base):
             await db.commit()
             await db.refresh(order)
             return order
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -972,6 +1109,12 @@ class OrderStatus(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -1018,6 +1161,11 @@ class Transaction(Base):
             await db.refresh(transaction)
             return transaction
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -1041,6 +1189,11 @@ class Transaction(Base):
             await db.commit()
             await db.refresh(transaction)
             return transaction
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -1072,6 +1225,11 @@ class Category(Base):
             await db.refresh(category)
             return category
 
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -1095,6 +1253,11 @@ class Category(Base):
             await db.commit()
             await db.refresh(category)
             return category
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -1125,6 +1288,12 @@ class Category(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -1133,7 +1302,7 @@ class SubCategory(Base):
     __tablename__ = "sub_categories"
 
     sub_category_id = Column(Integer, primary_key=True, autoincrement=True)
-    sub_category_name = Column(String(50), nullable=True)
+    sub_category_name = Column(String(50), nullable=False, unique=True)
     sub_category_description = Column(Text, nullable=True)
     category_id = Column(Integer, ForeignKey("categories.category_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
@@ -1160,6 +1329,12 @@ class SubCategory(Base):
             await db.refresh(sub_category)
             return sub_category
 
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -1183,6 +1358,11 @@ class SubCategory(Base):
             await db.commit()
             await db.refresh(sub_category)
             return sub_category
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -1213,6 +1393,12 @@ class SubCategory(Base):
                 await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -1254,6 +1440,11 @@ class Review(Base):
             await db.commit()
             await db.refresh(review)
             return review
+        
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
@@ -1278,6 +1469,11 @@ class Review(Base):
             await db.commit()
             await db.refresh(review)
             return review
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
 
         except Exception as e:
             await db.rollback()
