@@ -39,8 +39,6 @@ class UsersLogic:
             user_id: int,
             user: UserRequest
     ) -> bool:
-
-        # TODO WHEN UPDATING A USER SET, UPDATED_AT TO NOW()
         try:
             stmt = (
                 update(User)
@@ -53,7 +51,7 @@ class UsersLogic:
 
             return True
         except Exception as e:
-            raise HTTPException(status_code=500, detail="This feature is not implemented yet")
+            raise HTTPException(status_code=500, detail="Failed to update user")
 
     @staticmethod
     async def get_all(

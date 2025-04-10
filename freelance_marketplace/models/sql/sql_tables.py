@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, ForeignKey, VARCHAR, Table, insert, TIMESTAMP, Float, ARRAY, \
-    DECIMAL, select, CheckConstraint
+    DECIMAL, select
 from freelance_marketplace.db.sql.database import Base
 from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus as MilestoneStatusEnum
 from freelance_marketplace.models.enums.userRole import UserRole
@@ -459,7 +459,6 @@ class Requests(Base):
                      tags: list,
                      client_id: int,
                      freelancer_id: int,
-                     request_type: int
      ):
         try:
             request = cls(
@@ -470,7 +469,6 @@ class Requests(Base):
                 tags=tags,
                 client_id=client_id,
                 freelancer_id=freelancer_id,
-                type=request_type
             )
             db.add(request)
             await db.commit()
@@ -1052,7 +1050,7 @@ class Category(Base):
     __tablename__ = "categories"
 
     category_id = Column(Integer, primary_key=True, autoincrement=True)
-    category_name = Column(String(50), nullable=True)
+    category_name = Column(String(50), nullable=True, unique=True)
     category_description = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
@@ -1098,6 +1096,35 @@ class Category(Base):
             await db.refresh(category)
             return category
 
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def seed_categories(cls, db: AsyncSession) -> bool:
+        default_categories = [
+            {"category_name": "Software Development", "category_description": "This is the description"},
+            {"category_name": "Web Design", "category_description": "This is the description"},
+            {"category_name": "Finance", "category_description": "This is the description"},
+            {"category_name": "Crypto", "category_description": "This is the description"},
+            {"category_name": "Language learning", "category_description": "This is the description"}
+        ]
+        try:
+
+            existing_categories = await db.execute(
+                select(cls.category_name).where(
+                    cls.category_name.in_([m["category_name"] for m in default_categories]))
+            )
+            existing_category_names = {m[0] for m in existing_categories.fetchall()}
+
+            new_categories = [m for m in default_categories if m["category_name"] not in existing_category_names]
+
+            if new_categories:
+                stmt = insert(cls).values(new_categories)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
@@ -1157,6 +1184,35 @@ class SubCategory(Base):
             await db.refresh(sub_category)
             return sub_category
 
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @classmethod
+    async def seed_sub_categories(cls, db: AsyncSession) -> bool:
+        default_sub_categories = [
+            {"category_id": 1, "sub_category_name": "Software Development sub_category", "sub_category_description": "This is the description"},
+            {"category_id": 2, "sub_category_name": "Web Design sub_category", "sub_category_description": "This is the description"},
+            {"category_id": 3, "sub_category_name": "Finance sub_category", "sub_category_description": "This is the description"},
+            {"category_id": 4, "sub_category_name": "Crypto sub_category", "sub_category_description": "This is the description"},
+            {"category_id": 5, "sub_category_name": "Language learning sub_category", "sub_category_description": "This is the description"}
+        ]
+        try:
+
+            existing_categories = await db.execute(
+                select(cls.sub_category_name).where(
+                    cls.sub_category_name.in_([m["sub_category_name"] for m in default_sub_categories]))
+            )
+            existing_sub_category_names = {m[0] for m in existing_categories.fetchall()}
+
+            new_sub_categories = [m for m in default_sub_categories if m["sub_category_name"] not in existing_sub_category_names]
+
+            if new_sub_categories:
+                stmt = insert(cls).values(new_sub_categories)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))

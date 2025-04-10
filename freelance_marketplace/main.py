@@ -16,10 +16,11 @@ from freelance_marketplace.api.routes.profiles.profiles import router as profile
 from freelance_marketplace.api.routes.portfolios.portfolio import router as portfolio_router
 from freelance_marketplace.api.routes.notifications.notifications import router as notifications_router
 from freelance_marketplace.api.routes.categories.categories import router as categories_router
+from freelance_marketplace.api.routes.sub_categories.subCategories import router as sub_categories_router
 from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
 from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneStatus, WalletTypes, RequestStatus, \
-    ServiceStatus, ProposalStatus, OrderStatus
+    ServiceStatus, ProposalStatus, OrderStatus, Category, SubCategory
 
 load_dotenv()
 origins = ['*', "http://localhost:4200"]
@@ -53,6 +54,7 @@ app.include_router(profiles_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(portfolio_router, prefix="/api/v1")
 app.include_router(categories_router, prefix="/api/v1")
+app.include_router(sub_categories_router, prefix="/api/v1")
 
 
 @app.on_event("startup")
@@ -67,6 +69,8 @@ async def startup():
         await ServiceStatus.seed_status(session)
         await ProposalStatus.seed_status(session)
         await OrderStatus.seed_status(session)
+        await Category.seed_categories(session)
+        await SubCategory.seed_sub_categories(session)
         await User.seed_users(session)
 
 @app.on_event("shutdown")
