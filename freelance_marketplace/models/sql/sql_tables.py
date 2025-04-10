@@ -226,6 +226,8 @@ class Skills(Base):
 
     skill_id = Column(Integer, primary_key=True, autoincrement=True)
     skill = Column(String, nullable=False, unique=True)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     profiles: Mapped[List["Profiles"]] = relationship(
         secondary=profile_skills, back_populates="skills"
     )
@@ -361,6 +363,8 @@ class Profiles(Base):
     last_name = Column(VARCHAR(50), nullable=False)
     bio = Column(VARCHAR(1000), nullable=True)
     profile_picture = Column(VARCHAR(255), nullable=True)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     ##MANY TO MANY
     skills: Mapped[List[Skills]] = relationship(
@@ -783,6 +787,9 @@ class Proposal(Base):
     request_id = Column(Integer, ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     proposal_status_id = Column(Integer, ForeignKey("proposal_status.proposal_status_id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+
     # Relationships
     status = relationship("ProposalStatus", back_populates="proposals")
     request = relationship("Requests", back_populates="proposals")
@@ -1047,6 +1054,8 @@ class Category(Base):
     category_id = Column(Integer, primary_key=True, autoincrement=True)
     category_name = Column(String(50), nullable=True)
     category_description = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     sub_categories = relationship("SubCategory", back_populates="category", cascade="all, delete-orphan")
 
@@ -1100,6 +1109,8 @@ class SubCategory(Base):
     sub_category_name = Column(String(50), nullable=True)
     sub_category_description = Column(Text, nullable=True)
     category_id = Column(Integer, ForeignKey("categories.category_id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     category = relationship("Category", back_populates="sub_categories")
     services = relationship("Services", back_populates="sub_category", cascade="all, delete-orphan")
@@ -1160,6 +1171,7 @@ class Review(Base):
     rating = Column(DECIMAL(2, 1), nullable=False)  # Rating between 1.0 and 5.0
     comment = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     # Relationships
     reviewee = relationship("User", foreign_keys=[reviewee_id], back_populates="received_reviews")
