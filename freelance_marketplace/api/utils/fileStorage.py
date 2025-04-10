@@ -1,13 +1,8 @@
 import uuid
-
 import boto3
 from typing import List
 import hashlib
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from freelance_marketplace.core.config import settings
-
 
 class FileStorage:
     def __init__(
