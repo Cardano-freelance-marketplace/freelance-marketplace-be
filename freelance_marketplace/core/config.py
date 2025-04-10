@@ -25,6 +25,17 @@ class SQL(BaseSettings):
         env_file = ".env"
         extra = "ignore"  # Ignore extra fields
 
+class AWS(BaseSettings):
+    access_key_id: str = "test"
+    secret_access_key: str = "test"
+    region_name: str = "us-east-1"
+    endpoint_url: str = "http://localhost:4566"
+
+    class Config:
+        env_prefix = "AWS_"
+        env_file = ".env"
+        extra = "ignore"
+
 class FastAPISettings(BaseSettings):
     debug: bool = True
     title: str = "Freelancing Marketplace"
@@ -41,6 +52,7 @@ class Settings(BaseSettings):
     test: TestingSettings = TestingSettings()
     mongo: Mongo = Mongo()
     sql: SQL = SQL()
+    aws: AWS = AWS()
 
     class Config:
         env_nested_delimiter = "__"

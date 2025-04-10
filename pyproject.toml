@@ -19,6 +19,7 @@ beanie = ">=1.29.0,<2.0.0"
 pymongo = ">=4.11.3,<5.0.0"
 alembic = {extras = ["async"], version = "^1.15.2"}
 slowapi = "^0.1.9"
+boto3 = "^1.37.31"
 
 [tool.poetry.dev-dependencies]
 # Add development dependencies here (if any, such as testing libraries)
