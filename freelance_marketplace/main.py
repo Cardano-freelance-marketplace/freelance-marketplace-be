@@ -18,7 +18,7 @@ from freelance_marketplace.api.routes.notifications.notifications import router 
 from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
 from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneStatus, WalletTypes, RequestStatus, \
-    ServiceStatus
+    ServiceStatus, ProposalStatus, OrderStatus
 
 load_dotenv()
 origins = ['*', "http://localhost:4200"]
@@ -63,6 +63,8 @@ async def startup():
         await WalletTypes.seed_types(session)
         await RequestStatus.seed_status(session)
         await ServiceStatus.seed_status(session)
+        await ProposalStatus.seed_status(session)
+        await OrderStatus.seed_status(session)
         await User.seed_users(session)
 
 @app.on_event("shutdown")

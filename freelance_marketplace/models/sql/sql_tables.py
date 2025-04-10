@@ -10,7 +10,7 @@ from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship, Mapped
 from starlette.exceptions import HTTPException
-from freelance_marketplace.models.enums.requestStatus import RequestStatus as RequestStatusEnum
+from freelance_marketplace.models.enums.orderStatus import OrderStatus as OrderStatusEnum
 from freelance_marketplace.models.enums.proposalStatus import ProposalStatus as ProposalStatusEnum
 from freelance_marketplace.models.enums.serviceStatus import ServiceStatus as ServiceStatusEnum
 from freelance_marketplace.models.enums.requestStatus import RequestStatus as RequestStatusEnum
@@ -20,6 +20,34 @@ profile_skills = Table(
     Base.metadata,
     Column("profile_id", ForeignKey("profiles.profile_id"), primary_key=True),
     Column("skill_id", ForeignKey("skills.skill_id"), primary_key=True),
+)
+
+order_milestone_association = Table(
+    'order_milestone_association',
+    Base.metadata,
+    Column('order_id', Integer, ForeignKey('orders.order_id')),
+    Column('milestone_id', Integer, ForeignKey('milestones.milestone_id'))
+)
+
+proposal_milestone_association = Table(
+    'proposal_milestone_association',
+    Base.metadata,
+    Column('proposal_id', Integer, ForeignKey('proposals.proposal_id')),
+    Column('milestone_id', Integer, ForeignKey('milestones.milestone_id'))
+)
+
+request_milestone_association = Table(
+    'request_milestone_association',
+    Base.metadata,
+    Column('request_id', Integer, ForeignKey('requests.request_id')),
+    Column('milestone_id', Integer, ForeignKey('milestones.milestone_id'))
+)
+
+service_milestone_association = Table(
+    'service_milestone_association',
+    Base.metadata,
+    Column('service_id', Integer, ForeignKey('services.service_id')),
+    Column('milestone_id', Integer, ForeignKey('milestones.milestone_id'))
 )
 
 class User(Base):
@@ -332,7 +360,7 @@ class Profiles(Base):
     first_name = Column(VARCHAR(50), nullable=False)
     last_name = Column(VARCHAR(50), nullable=False)
     bio = Column(VARCHAR(1000), nullable=True)
-    profile_picture = Column(VARCHAR(1000), nullable=True)
+    profile_picture = Column(VARCHAR(255), nullable=True)
 
     ##MANY TO MANY
     skills: Mapped[List[Skills]] = relationship(
@@ -414,7 +442,7 @@ class Requests(Base):
     request_status = relationship("RequestStatus", back_populates="requests")
     client = relationship("User", foreign_keys=[client_id], back_populates="requests")
     sub_category = relationship("SubCategory", back_populates="requests")
-    milestones = relationship("Milestones", back_populates="request", cascade="all, delete-orphan")
+    milestones = relationship("Milestones", secondary=request_milestone_association, back_populates="requests", cascade="all")
     proposals = relationship("Proposal", back_populates="request", cascade="all, delete-orphan")
 
     @classmethod
@@ -526,7 +554,7 @@ class Services(Base):
     status = relationship("ServiceStatus", back_populates="services")
     freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="services")
     sub_category = relationship("SubCategory", back_populates="services")
-    milestones = relationship("Milestones", back_populates="service", cascade="all, delete-orphan")
+    milestones = relationship("Milestones", secondary=service_milestone_association, back_populates="services", cascade="all")
     orders = relationship("Order", back_populates="service", cascade="all, delete-orphan")
 
     @classmethod
@@ -615,16 +643,11 @@ class ServiceStatus(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+
 class Milestones(Base):
     __tablename__ = "milestones"
 
     milestone_id = Column(Integer, primary_key=True, autoincrement=True)
-    ## TODO change proposal and order to a many-to-many relationship
-    proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=True)
-    order_id = Column(Integer, ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=True)
-    service_id = Column(Integer, ForeignKey("services.service_id", ondelete="CASCADE"), nullable=True)
-    request_id = Column(Integer, ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=True)
-
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
 
@@ -637,19 +660,6 @@ class Milestones(Base):
     freelancer_approved = Column(Boolean, nullable=False, default=False)
     milestone_status_id = Column(Integer, ForeignKey("milestone_status.milestone_status_id", ondelete="SET NULL"), nullable=True)
 
-    __table_args__ = (
-        CheckConstraint(
-            """
-            (
-                (proposal_id IS NOT NULL)::int +
-                (order_id IS NOT NULL)::int +
-                (service_id IS NOT NULL)::int +
-                (request_id IS NOT NULL)::int
-            ) = 1
-            """,
-            name="check_only_one_parent"
-        ),
-    )
     # Relationships
     milestone_status = relationship("MilestoneStatus", back_populates="milestones")
 
@@ -665,10 +675,10 @@ class Milestones(Base):
     freelancers_services = relationship("User", foreign_keys=[client_id], back_populates="freelancer_service_milestones")
     clients_services = relationship("User", foreign_keys=[freelancer_id], back_populates="client_service_milestones")
 
-    request = relationship("Requests", back_populates="milestones")
-    service = relationship("Services", back_populates="milestones")
-    order = relationship("Order", back_populates="milestones")
-    proposal = relationship("Proposal", back_populates="milestones")
+    requests = relationship("Requests", secondary=request_milestone_association, back_populates="milestones")
+    services = relationship("Services", secondary=service_milestone_association, back_populates="milestones")
+    orders = relationship("Order", secondary=order_milestone_association, back_populates="milestones")
+    proposals = relationship("Proposal", secondary=proposal_milestone_association, back_populates="milestones")
     transaction = relationship("Transaction", back_populates="milestone")
 
     @classmethod
@@ -770,13 +780,14 @@ class Proposal(Base):
     __tablename__ = "proposals"
 
     proposal_id = Column(Integer, primary_key=True, autoincrement=True)
-    requests_id = Column(Integer, ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
+    request_id = Column(Integer, ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-
+    proposal_status_id = Column(Integer, ForeignKey("proposal_status.proposal_status_id", ondelete="CASCADE"), nullable=False)
     # Relationships
+    status = relationship("ProposalStatus", back_populates="proposals")
     request = relationship("Requests", back_populates="proposals")
     freelancer = relationship("User", back_populates="proposals")
-    milestones = relationship("Milestones", back_populates="proposal", cascade="all, delete-orphan")
+    milestones = relationship("Milestones", secondary=proposal_milestone_association, back_populates="proposals", cascade="all")
 
     @classmethod
     async def create(cls,
@@ -823,6 +834,44 @@ class Proposal(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+class ProposalStatus(Base):
+    __tablename__ = "proposal_status"
+    proposal_status_id = Column(Integer, primary_key=True, autoincrement=True)
+    proposal_status_name = Column(String(50), nullable=False)
+    proposal_status_description = Column(Text, nullable=False)
+
+    proposals = relationship("Proposal", back_populates="status")
+
+    @classmethod
+    async def seed_status(cls, db: AsyncSession) -> bool:
+        default_status = [
+            {"proposal_status_id": ProposalStatusEnum.CANCELED.value, "proposal_status_name": ProposalStatusEnum.CANCELED.name, "proposal_status_description": f""},
+            {"proposal_status_id": ProposalStatusEnum.DRAFT.value, "proposal_status_name": ProposalStatusEnum.DRAFT.name, "proposal_status_description": f""},
+            {"proposal_status_id": ProposalStatusEnum.PENDING.value, "proposal_status_name": ProposalStatusEnum.PENDING.name, "proposal_status_description": f""},
+            {"proposal_status_id": ProposalStatusEnum.ACCEPTED.value, "proposal_status_name": ProposalStatusEnum.ACCEPTED.name, "proposal_status_description": f""},
+            {"proposal_status_id": ProposalStatusEnum.IN_PROGRESS.value, "proposal_status_name": ProposalStatusEnum.IN_PROGRESS.name, "proposal_status_description": f""},
+            {"proposal_status_id": ProposalStatusEnum.COMPLETED.value, "proposal_status_name": ProposalStatusEnum.COMPLETED.name, "proposal_status_description": f""},
+            {"proposal_status_id": ProposalStatusEnum.DENIED_BY_CLIENT.value, "proposal_status_name": ProposalStatusEnum.DENIED_BY_CLIENT.name, "proposal_status_description": f""},
+        ]
+        try:
+
+            existing_status = await db.execute(
+                select(cls.proposal_status_id).where(cls.proposal_status_id.in_([m["proposal_status_id"] for m in default_status]))
+            )
+            existing_proposal_status_ids = {m[0] for m in existing_status.fetchall()}
+
+            new_statuses = [m for m in default_status if m["proposal_status_id"] not in existing_proposal_status_ids]
+
+            if new_statuses:
+                stmt = insert(cls).values(new_statuses)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
 class Order(Base):
     __tablename__ = "orders"
 
@@ -831,10 +880,12 @@ class Order(Base):
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    order_status_id = Column(Integer, ForeignKey("order_status.order_status_id", ondelete="CASCADE"), nullable=False)
 
     # Relationships
+    status = relationship("OrderStatus", back_populates="orders")
     service = relationship("Services", back_populates="orders")
-    milestones = relationship("Milestones", back_populates="order", cascade="all, delete-orphan")
+    milestones = relationship("Milestones", secondary=order_milestone_association, back_populates="orders", cascade="all")
     client = relationship("User", back_populates="orders")
 
     @classmethod
@@ -883,6 +934,42 @@ class Order(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+class OrderStatus(Base):
+    __tablename__ = "order_status"
+    order_status_id = Column(Integer, primary_key=True, autoincrement=True)
+    order_status_name = Column(String(50), nullable=False)
+    order_status_description = Column(Text, nullable=False)
+
+    orders = relationship("Order", back_populates="status")
+
+    @classmethod
+    async def seed_status(cls, db: AsyncSession) -> bool:
+        default_status = [
+            {"order_status_id": OrderStatusEnum.CANCELED.value, "order_status_name": OrderStatusEnum.CANCELED.name, "order_status_description": f""},
+            {"order_status_id": OrderStatusEnum.DRAFT.value, "order_status_name": OrderStatusEnum.DRAFT.name, "order_status_description": f""},
+            {"order_status_id": OrderStatusEnum.PENDING.value, "order_status_name": OrderStatusEnum.PENDING.name, "order_status_description": f""},
+            {"order_status_id": OrderStatusEnum.IN_PROGRESS.value, "order_status_name": OrderStatusEnum.IN_PROGRESS.name, "order_status_description": f""},
+            {"order_status_id": OrderStatusEnum.COMPLETED.value, "order_status_name": OrderStatusEnum.COMPLETED.name, "order_status_description": f""},
+            {"order_status_id": OrderStatusEnum.DENIED_BY_FREELANCER.value, "order_status_name": OrderStatusEnum.DENIED_BY_FREELANCER.name, "order_status_description": f""},
+        ]
+        try:
+
+            existing_status = await db.execute(
+                select(cls.order_status_id).where(cls.order_status_id.in_([m["order_status_id"] for m in default_status]))
+            )
+            existing_order_status_ids = {m[0] for m in existing_status.fetchall()}
+
+            new_statuses = [m for m in default_status if m["order_status_id"] not in existing_order_status_ids]
+
+            if new_statuses:
+                stmt = insert(cls).values(new_statuses)
+                await db.execute(stmt)
+                await db.commit()
+
+            return True
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
 
 class Transaction(Base):
     __tablename__ = "transactions"
