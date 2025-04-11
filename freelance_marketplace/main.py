@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
@@ -17,6 +16,8 @@ from freelance_marketplace.api.routes.portfolios.portfolio import router as port
 from freelance_marketplace.api.routes.notifications.notifications import router as notifications_router
 from freelance_marketplace.api.routes.categories.categories import router as categories_router
 from freelance_marketplace.api.routes.sub_categories.subCategories import router as sub_categories_router
+from freelance_marketplace.api.routes.services.services import router as services_router
+from freelance_marketplace.api.routes.requests.requests import router as requests_router
 from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
 from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneStatus, WalletTypes, RequestStatus, \
@@ -55,6 +56,8 @@ app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(portfolio_router, prefix="/api/v1")
 app.include_router(categories_router, prefix="/api/v1")
 app.include_router(sub_categories_router, prefix="/api/v1")
+app.include_router(services_router, prefix="/api/v1")
+app.include_router(requests_router, prefix="/api/v1")
 
 
 @app.on_event("startup")

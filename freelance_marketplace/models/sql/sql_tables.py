@@ -1,10 +1,7 @@
 from datetime import datetime, timezone
-
-from asyncpg import UniqueViolationError
 from sqlalchemy import Boolean, ForeignKey, VARCHAR, Table, insert, TIMESTAMP, Float, ARRAY, \
     DECIMAL, select
 from sqlalchemy.exc import IntegrityError
-
 from freelance_marketplace.db.sql.database import Base
 from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus as MilestoneStatusEnum
 from freelance_marketplace.models.enums.userRole import UserRole
@@ -496,13 +493,13 @@ class Requests(Base):
     title = Column(String(50), nullable=False)
     description = Column(Text, nullable=False)
     sub_category_id = Column(Integer, ForeignKey("sub_categories.sub_category_id", ondelete='SET NULL'), nullable=False)
-    total_price = Column(Float, nullable=True)
+    total_price = Column(Float, nullable=False)
     tags = Column(ARRAY(String), nullable=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
 
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
-    request_status_id = Column(Integer, ForeignKey("request_status.request_status_id", ondelete="SET NULL"), nullable=True)
+    request_status_id = Column(Integer, ForeignKey("request_status.request_status_id", ondelete="SET NULL"), default=RequestStatusEnum.DRAFT.value, nullable=True)
 
     # Relationships
     request_status = relationship("RequestStatus", back_populates="requests")
@@ -520,7 +517,6 @@ class Requests(Base):
                      total_price: float,
                      tags: list,
                      client_id: int,
-                     freelancer_id: int,
      ):
         try:
             request = cls(
@@ -530,7 +526,6 @@ class Requests(Base):
                 total_price=total_price,
                 tags=tags,
                 client_id=client_id,
-                freelancer_id=freelancer_id,
             )
             db.add(request)
             await db.commit()
@@ -628,7 +623,7 @@ class Services(Base):
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
-    service_status_id = Column(Integer, ForeignKey("service_status.service_status_id", ondelete="SET NULL"), nullable=True)
+    service_status_id = Column(Integer, ForeignKey("service_status.service_status_id", ondelete="SET NULL"), default=ServiceStatusEnum.DRAFT.value,  nullable=True)
 
     # Relationships
     status = relationship("ServiceStatus", back_populates="services")
@@ -1131,7 +1126,6 @@ class Transaction(Base):
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
-
 
     # Relationships
     milestone = relationship("Milestones", back_populates="transaction", uselist=False)
