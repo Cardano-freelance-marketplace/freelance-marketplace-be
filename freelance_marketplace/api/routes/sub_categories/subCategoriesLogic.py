@@ -32,10 +32,13 @@ class SubCategoriesLogic:
     )-> bool:
         try:
             transaction = delete(SubCategory).where(SubCategory.sub_category_id == sub_category_id)
-            await db.execute(transaction)
+            result = await db.execute(transaction)
             await db.commit()
-            await Redis.invalidate_cache(prefix="subcategories")
-            return True
+            if result.rowcount > 0:
+                await Redis.invalidate_cache(prefix="subcategories")
+                return True
+            else:
+                raise HTTPException(status_code=404, detail="Sub category not found or already deleted")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 

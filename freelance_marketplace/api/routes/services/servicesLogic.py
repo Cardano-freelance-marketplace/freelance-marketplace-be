@@ -31,9 +31,12 @@ class ServicesLogic:
     )-> bool:
         try:
             transaction = delete(Services).where(Services.service_id == service_id)
-            await db.execute(transaction)
+            result = await db.execute(transaction)
             await db.commit()
-            return True
+            if result.rowcount > 0:
+                return True
+            else:
+                raise HTTPException(status_code=404, detail="Service not found or already deleted")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 

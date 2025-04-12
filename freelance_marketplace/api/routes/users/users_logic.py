@@ -26,9 +26,12 @@ class UsersLogic:
     )-> bool:
         try:
             transaction = delete(User).where(User.user_id == user_id)
-            await db.execute(transaction)
+            result = await db.execute(transaction)
             await db.commit()
-            return True
+            if result.rowcount > 0:
+                return True
+            else:
+                raise HTTPException(status_code=404, detail="User role not found or already deleted")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
