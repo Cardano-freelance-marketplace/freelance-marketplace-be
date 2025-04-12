@@ -196,6 +196,7 @@ class WalletTypes(Base):
     __tablename__ = "wallet_types"
 
     wallet_type_id = Column(Integer, primary_key=True, autoincrement=True)
+    deleted = Column(Boolean, nullable=False, default=False)
     wallet_type_name = Column(VARCHAR(50), nullable=False)
 
     users = relationship("User", back_populates="wallet_type")
@@ -249,6 +250,7 @@ class Skills(Base):
 
     skill_id = Column(Integer, primary_key=True, autoincrement=True)
     skill = Column(String, nullable=False, unique=True)
+    deleted = Column(Boolean, nullable=False, default=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     profiles: Mapped[List["Profiles"]] = relationship(
@@ -311,6 +313,7 @@ class Role(Base):
     __tablename__ = "roles"
 
     role_id = Column(Integer, primary_key=True, autoincrement=True)
+    deleted = Column(Boolean, nullable=False, default=False)
     role_name = Column(String(50), nullable=False, unique=True)
     role_description = Column(Text, nullable=True)
 
@@ -745,6 +748,7 @@ class Milestones(Base):
     milestone_tx_hash = Column(String(4096), nullable=False)
     milestone_text = Column(Text, nullable=False)
     reward_amount = Column(Float, nullable=False)
+    deleted = Column(Boolean, nullable=False, default=False)
     created_at = Column(TIMESTAMP(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     client_approved = Column(Boolean, nullable=False, default=False)
@@ -1411,6 +1415,7 @@ class Review(Base):
     reviewer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)  # Person giving the review
     rating = Column(DECIMAL(2, 1), nullable=False)  # Rating between 1.0 and 5.0
     comment = Column(Text, nullable=True)
+    deleted = Column(Boolean, nullable=False, default=False)
     created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
