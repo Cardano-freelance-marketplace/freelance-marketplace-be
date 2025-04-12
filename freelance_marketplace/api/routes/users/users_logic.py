@@ -63,7 +63,7 @@ class UsersLogic:
         result = await db.execute(select(User))
         users = result.scalars().all()
         if not users:
-            raise HTTPException(status_code=204, detail="Users not found")
+            raise HTTPException(status_code=404, detail="Users not found")
         return users
 
     @staticmethod
@@ -75,7 +75,7 @@ class UsersLogic:
             result = await db.execute(select(User).where(User.user_id == user_id))
             user = result.scalars().first()
             if not user:
-                raise HTTPException(status_code=204, detail=f"User {user_id} not found")
+                raise HTTPException(status_code=404, detail=f"User not found")
             return user
 
         except Exception as e:

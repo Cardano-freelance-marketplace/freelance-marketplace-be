@@ -70,7 +70,7 @@ class ProfilesLogic:
             result = await db.execute(select(Profiles).where(Profiles.user_id == user_id))
             profile = result.scalars().first()
             if not profile:
-                raise HTTPException(status_code=204, detail=f"User profile for user id :{user_id} \n not found")
+                raise HTTPException(status_code=404, detail=f"User profile not found")
             return profile
 
         except Exception as e:

@@ -92,7 +92,7 @@ class ServicesLogic:
             result = await db.execute(select(Services).where(Services.service_id == service_id))
             service = result.scalars().first()
             if not service:
-                raise HTTPException(status_code=204, detail=f"Service not found")
+                raise HTTPException(status_code=404, detail=f"Service not found")
             return service
 
         except Exception as e:
@@ -111,7 +111,7 @@ class ServicesLogic:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
         if not services:
-            raise HTTPException(status_code=204, detail=f"Services not found")
+            raise HTTPException(status_code=404, detail=f"Services not found")
         return services
 
 
@@ -130,7 +130,7 @@ class ServicesLogic:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
         if not services:
-            raise HTTPException(status_code=204, detail=f"Services not found")
+            raise HTTPException(status_code=404, detail=f"Services not found")
         return services
 
 
@@ -149,6 +149,6 @@ class ServicesLogic:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
         if not services:
-            raise HTTPException(status_code=204, detail=f"Services not found")
+            raise HTTPException(status_code=404, detail=f"Services not found")
         return services
 

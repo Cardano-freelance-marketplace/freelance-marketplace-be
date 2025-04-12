@@ -1419,7 +1419,8 @@ class Review(Base):
                      reviewee_id: int,
                      reviewer_id: int,
                      rating: float,
-                     comment: str = None):
+                     comment: str = None
+         ):
         if rating < 1.0 or rating > 5.0:
             raise HTTPException(status_code=400, detail="Rating must be between 1.0 and 5.0")
 

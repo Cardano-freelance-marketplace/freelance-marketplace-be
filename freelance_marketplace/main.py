@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from freelance_marketplace.db.sql.database import init_db, AsyncSessionLocal
 from freelance_marketplace.db.no_sql.mongo import mongo_session
 from freelance_marketplace.api.routes.user_roles.user_roles import router as user_roles_router
+from freelance_marketplace.api.routes.reviews.reviews import router as reviews_router
 from freelance_marketplace.api.routes.profiles.profiles import router as profiles_router
 from freelance_marketplace.api.routes.portfolios.portfolio import router as portfolio_router
 from freelance_marketplace.api.routes.notifications.notifications import router as notifications_router
@@ -60,6 +61,7 @@ app.include_router(categories_router, prefix="/api/v1")
 app.include_router(sub_categories_router, prefix="/api/v1")
 app.include_router(services_router, prefix="/api/v1")
 app.include_router(requests_router, prefix="/api/v1")
+app.include_router(reviews_router, prefix="/api/v1")
 
 
 @app.on_event("startup")

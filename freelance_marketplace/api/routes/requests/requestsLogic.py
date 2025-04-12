@@ -93,7 +93,7 @@ class RequestsLogic:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
         if not request:
-            raise HTTPException(status_code=204, detail=f"Service not found")
+            raise HTTPException(status_code=404, detail=f"Service not found")
         return request
 
 
@@ -110,7 +110,7 @@ class RequestsLogic:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
         if not requests:
-            raise HTTPException(status_code=204, detail=f"Requests not found")
+            raise HTTPException(status_code=404, detail=f"Requests not found")
         return requests
 
 
@@ -129,7 +129,7 @@ class RequestsLogic:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
         if not requests:
-            raise HTTPException(status_code=204, detail=f"Requests not found")
+            raise HTTPException(status_code=404, detail=f"Requests not found")
         return requests
 
 
@@ -148,6 +148,6 @@ class RequestsLogic:
 
         requests = result.scalars().all()
         if not requests:
-            raise HTTPException(status_code=204, detail=f"Requests not found")
+            raise HTTPException(status_code=404, detail=f"Requests not found")
         return requests
 

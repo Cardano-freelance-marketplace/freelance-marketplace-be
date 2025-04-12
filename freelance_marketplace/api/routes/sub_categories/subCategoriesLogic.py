@@ -79,7 +79,7 @@ class SubCategoriesLogic:
             result = await db.execute(select(SubCategory).where(SubCategory.sub_category_id == sub_category_id))
             sub_category = result.scalars().first()
             if not sub_category:
-                raise HTTPException(status_code=204, detail=f"sub category with id : {sub_category_id} \n not found")
+                raise HTTPException(status_code=404, detail=f"Sub-Category not found")
 
             await Redis.set_redis_data(cache_key, data=sub_category)
             return sub_category

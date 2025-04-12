@@ -19,7 +19,7 @@ class UserRolesLogic:
         result = await db.execute(select(Role))
         roles = result.scalars().all()
         if not roles:
-            raise HTTPException(status_code=204, detail="Roles not found")
+            raise HTTPException(status_code=404, detail="Roles not found")
 
         await Redis.set_redis_data(cache_key, roles)
         return roles
@@ -42,6 +42,6 @@ class UserRolesLogic:
         )
         user = result.scalars().first()
         if not user:
-            raise HTTPException(status_code=204, detail="Roles not found")
+            raise HTTPException(status_code=404, detail="Roles not found")
         await Redis.set_redis_data(cache_key, user)
         return user.role

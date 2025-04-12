@@ -72,7 +72,7 @@ class CategoriesLogic:
             result = await db.execute(select(Category).where(Category.category_id == category_id))
             category = result.scalars().first()
             if not category:
-                raise HTTPException(status_code=204, detail=f"category for with id : {category_id} \n not found")
+                raise HTTPException(status_code=404, detail=f"Category not found")
             return category
 
         except Exception as e:
