@@ -177,7 +177,7 @@ class MilestonesLogic:
 
             result = await db.execute(
                 select(Milestones)
-                .where(Milestones.milestoneer_id == service_id)
+                .where(Milestones.milestone_id == service_id)
             )
             milestones = result.scalars().all()
             if not milestones:
@@ -202,7 +202,7 @@ class MilestonesLogic:
 
             result = await db.execute(
                 select(Milestones)
-                .where(Milestones.milestoneer_id == request_id)
+                .where(Milestones.milestone_id == request_id)
             )
             milestones = result.scalars().all()
             if not milestones:
@@ -227,7 +227,7 @@ class MilestonesLogic:
 
             result = await db.execute(
                 select(Milestones)
-                .where(Milestones.milestoneer_id == proposal_id)
+                .where(Milestones.milestone_id == proposal_id)
             )
             milestones = result.scalars().all()
             if not milestones:
@@ -252,7 +252,7 @@ class MilestonesLogic:
 
             result = await db.execute(
                 select(Milestones)
-                .where(Milestones.milestoneer_id == order_id)
+                .where(Milestones.milestone_id == order_id)
             )
             milestones = result.scalars().all()
             if not milestones:

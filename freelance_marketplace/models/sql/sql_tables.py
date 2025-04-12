@@ -899,7 +899,7 @@ class Proposal(Base):
     proposal_id = Column(Integer, primary_key=True, autoincrement=True)
     request_id = Column(Integer, ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    proposal_status_id = Column(Integer, ForeignKey("proposal_status.proposal_status_id", ondelete="CASCADE"), nullable=False)
+    proposal_status_id = Column(Integer, ForeignKey("proposal_status.proposal_status_id", ondelete="CASCADE"), default=ProposalStatusEnum.DRAFT.value, nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
@@ -912,15 +912,13 @@ class Proposal(Base):
     @classmethod
     async def create(cls,
                      db: AsyncSession,
-                     proposal_id: int,
+                     request_id: int,
                      freelancer_id: int,
-                     milestone_id: int = None
                      ):
         try:
             proposal = cls(
-                proposal_id=proposal_id,
+                request_id=request_id,
                 freelancer_id=freelancer_id,
-                milestone_id=milestone_id
             )
             db.add(proposal)
             await db.commit()

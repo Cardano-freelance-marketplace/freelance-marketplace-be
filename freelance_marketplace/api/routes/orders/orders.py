@@ -19,13 +19,13 @@ async def get_all_orders(
         db: AsyncSession = Depends(get_sql_db),
         order_status_id: int | None = Query(None, description="Filter by order_status_id (CANCELED = 0, DRAFT = 1, PENDING = 2, ACCEPTED = 3, IN_PROGRESS = 4, COMPLETED = 5, DENIED_BY_FREELANCER = 6)"),
         service_id: int | None = Query(None, description="Filter by service_id"),
-        user_id: int | None = Query(None, description="Filter by user_id"),
+        client_id: int | None = Query(None, description="Filter by client_id"),
         deleted: bool | None = Query(False, description="Filter by deleted")
 ):
     query_params: dict = {
         'order_status_id': order_status_id,
         'service_id': service_id,
-        "user_id": user_id,
+        "client_id": client_id,
         "deleted": deleted
     }
     return await OrdersLogic.get_all(db=db, query_params=query_params)
