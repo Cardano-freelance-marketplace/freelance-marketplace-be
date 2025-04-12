@@ -13,7 +13,6 @@ async def create_notification(
     await notification.create()
     return True
 
-
 @router.get("/notification", tags=["notifications"])
 async def get_notification(
         notification_id: str

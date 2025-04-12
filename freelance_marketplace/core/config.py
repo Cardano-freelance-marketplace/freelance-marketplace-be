@@ -17,6 +17,16 @@ class Mongo(BaseSettings):
         env_file = ".env"
         extra = "ignore"  # Ignore extra fields
 
+class Redis(BaseSettings):
+    port: str = "6379"
+    host: str = "localhost"
+    decode_responses: bool = True
+
+    class Config:
+        env_prefix = "REDIS_"
+        env_file = ".env"
+        extra = "ignore"  # Ignore extra fields
+
 class SQL(BaseSettings):
     connection_string: str = ""
 
@@ -53,6 +63,7 @@ class Settings(BaseSettings):
     mongo: Mongo = Mongo()
     sql: SQL = SQL()
     aws: AWS = AWS()
+    redis: Redis = Redis()
 
     class Config:
         env_nested_delimiter = "__"

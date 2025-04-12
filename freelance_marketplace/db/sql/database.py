@@ -2,7 +2,6 @@ from sqlalchemy.ext.asyncio import (AsyncSession,
                                     create_async_engine, async_sessionmaker)
 from sqlalchemy.ext.declarative import declarative_base
 from freelance_marketplace.core.config import settings
-
 Base = declarative_base()
 
 DATABASE_URL = settings.sql.connection_string

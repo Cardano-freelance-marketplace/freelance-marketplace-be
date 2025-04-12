@@ -1,9 +1,9 @@
-from typing import Any, Coroutine, Sequence
-
+from typing import Sequence
 from fastapi import HTTPException
 from sqlalchemy import delete, update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from freelance_marketplace.api.utils.redis import Redis
 from freelance_marketplace.models.sql.request_model.CategoryRequest import CategoryRequest
 from freelance_marketplace.models.sql.sql_tables import Category
 
@@ -17,6 +17,7 @@ class CategoriesLogic:
     ) -> bool:
         try:
             await Category.create(db=db, **category.model_dump())
+            await Redis.invalidate_cache(prefix='categories')
             return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
@@ -29,9 +30,13 @@ class CategoriesLogic:
     )-> bool:
         try:
             transaction = delete(Category).where(Category.category_id == category_id)
-            await db.execute(transaction)
+            result = await db.execute(transaction)
             await db.commit()
-            return True
+            if result.rowcount > 0:
+                await Redis.invalidate_cache(prefix='categories')
+                return True
+            else:
+                return False
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
@@ -42,8 +47,6 @@ class CategoriesLogic:
             category_id: int,
             category: CategoryRequest
     ) -> bool:
-
-        # TODO WHEN UPDATING A USER SET, UPDATED_AT TO NOW()
         try:
             stmt = (
                 update(Category)
@@ -53,6 +56,7 @@ class CategoriesLogic:
             )
             await db.execute(stmt)
             await db.commit()
+            await Redis.invalidate_cache(prefix='categories')
 
             return True
         except Exception as e:
@@ -79,10 +83,17 @@ class CategoriesLogic:
             db: AsyncSession,
     ) -> Sequence[Category]:
         try:
+            cache_key = 'categories:all'
+            redis_data = await Redis.get_redis_data(cache_key)
+            if redis_data:
+                return redis_data
+
             result = await db.execute(select(Category))
             categories = result.scalars().all()
             if not categories:
                 raise HTTPException(status_code=404, detail=f"categories not found")
+
+            await Redis.set_redis_data(cache_key, data=categories)
             return categories
 
         except Exception as e:

@@ -5,6 +5,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+
+from freelance_marketplace.api.utils.redis import redis_client
 from freelance_marketplace.core.config import settings
 from freelance_marketplace.middleware.response_wrapper import transform_response_middleware
 from dotenv import load_dotenv
@@ -62,6 +64,12 @@ app.include_router(requests_router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup():
+    try:
+        await redis_client.ping()
+        print("Redis connection successful.")
+    except Exception as e:
+        print(f"Redis connection failed: {e}")
+
     await init_db()
     await mongo_session.init_mongo()
     async with AsyncSessionLocal() as session:
