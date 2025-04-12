@@ -11,7 +11,6 @@ from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship, Mapped
 from starlette.exceptions import HTTPException
-from freelance_marketplace.models.enums.orderStatus import OrderStatus as OrderStatusEnum
 from freelance_marketplace.models.enums.proposalStatus import ProposalStatus as ProposalStatusEnum
 from freelance_marketplace.models.enums.serviceStatus import ServiceStatus as ServiceStatusEnum
 from freelance_marketplace.models.enums.requestStatus import RequestStatus as RequestStatusEnum
@@ -58,8 +57,8 @@ class User(Base):
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     creation_date = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
-    is_active = Column(Boolean, nullable=False, default=True)
-    is_deleted = Column(Boolean, nullable=False, default=False)
+    active = Column(Boolean, nullable=False, default=True)
+    deleted = Column(Boolean, nullable=False, default=False)
     wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
     wallet_type_id = Column(Integer, ForeignKey("wallet_types.wallet_type_id", ondelete="SET NULL"), default=WalletTypeEnum.Lace.value)
     last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
@@ -499,6 +498,7 @@ class Requests(Base):
     sub_category_id = Column(Integer, ForeignKey("sub_categories.sub_category_id", ondelete='SET NULL'), nullable=False)
     total_price = Column(Float, nullable=False)
     tags = Column(ARRAY(String), nullable=False)
+    deleted = Column(Boolean, nullable=False, default=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
 
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
@@ -624,6 +624,7 @@ class Services(Base):
     sub_category_id = Column(Integer, ForeignKey("sub_categories.sub_category_id", ondelete='SET NULL'), nullable=False)
     total_price = Column(Float, nullable=True)
     tags = Column(ARRAY(String), nullable=False)
+    deleted = Column(Boolean, nullable=False, default=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
@@ -901,6 +902,7 @@ class Proposal(Base):
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     proposal_status_id = Column(Integer, ForeignKey("proposal_status.proposal_status_id", ondelete="CASCADE"), default=ProposalStatusEnum.DRAFT.value, nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    deleted = Column(Boolean, nullable=False, default=False)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     # Relationships
@@ -1014,7 +1016,7 @@ class Order(Base):
     service_id = Column(Integer, ForeignKey("services.service_id", ondelete="CASCADE"), nullable=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    deleted = Column(Boolean, default=False)
+    deleted = Column(Boolean, nullable=False, default=False)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     order_status_id = Column(Integer, ForeignKey("order_status.order_status_id", ondelete="CASCADE"), default=OrderStatusEnum.DRAFT.value, nullable=False)
 
@@ -1128,6 +1130,7 @@ class Transaction(Base):
     milestone_id = Column(Integer, ForeignKey("milestones.milestone_id", ondelete="CASCADE"), nullable=False)
     amount = Column(DECIMAL(10, 2), nullable=False)
     token_name = Column(String(50), nullable=True)
+    deleted = Column(Boolean, nullable=False, default=False)
     receiver_address = Column(Text, nullable=True)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
@@ -1206,6 +1209,7 @@ class Category(Base):
     category_id = Column(Integer, primary_key=True, autoincrement=True)
     category_name = Column(String(50), nullable=True, unique=True)
     category_description = Column(Text, nullable=True)
+    deleted = Column(Boolean, nullable=False, default=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
@@ -1307,6 +1311,7 @@ class SubCategory(Base):
     sub_category_description = Column(Text, nullable=True)
     category_id = Column(Integer, ForeignKey("categories.category_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    deleted = Column(Boolean, nullable=False, default=False)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     category = relationship("Category", back_populates="sub_categories")

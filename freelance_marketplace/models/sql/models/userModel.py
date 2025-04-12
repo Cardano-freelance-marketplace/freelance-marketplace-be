@@ -28,7 +28,7 @@ class UserModel(BaseModel):
     user_id: int
     creation_date: datetime
     updated_at: Optional[datetime]
-    is_active: bool
+    active: bool
     wallet_public_address: str
     wallet_type: WalletType
     last_login: datetime
