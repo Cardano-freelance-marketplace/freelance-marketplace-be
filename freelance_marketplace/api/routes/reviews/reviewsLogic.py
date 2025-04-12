@@ -1,6 +1,7 @@
 from typing import Sequence
 from fastapi import HTTPException
 from sqlalchemy import delete, update, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.utils.redis import Redis
 from freelance_marketplace.models.sql.request_model.ReviewRequest import ReviewRequest
@@ -59,10 +60,16 @@ class ReviewsLogic:
             await Redis.invalidate_cache(prefix="reviews")
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
+
         except Exception as e:
             print(e)
-            raise HTTPException(status_code=500, detail="This feature is not implemented yet")
-
+            raise HTTPException(status_code=500, detail=f"{str(e)}")
     @staticmethod
     async def get(
             db: AsyncSession,

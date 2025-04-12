@@ -1,6 +1,7 @@
 from typing import Sequence
 from fastapi import HTTPException
 from sqlalchemy import delete, update, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.models.enums.requestStatus import RequestStatus
 from freelance_marketplace.models.sql.request_model.RequestRequest import RequestRequest
@@ -56,6 +57,12 @@ class RequestsLogic:
             await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             print(e)
             raise HTTPException(status_code=500, detail=f"{str(e)}")
@@ -77,6 +84,12 @@ class RequestsLogic:
             await db.commit()
 
             return True
+
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             print(e)
             raise HTTPException(status_code=500, detail=f"{str(e)}")

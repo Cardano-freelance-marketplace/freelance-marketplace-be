@@ -2,6 +2,7 @@ from typing import Sequence
 
 from fastapi import HTTPException
 from sqlalchemy import delete, update, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.models.sql.request_model.UserRequest import UserRequest
 from freelance_marketplace.models.sql.sql_tables import User
@@ -53,6 +54,11 @@ class UsersLogic:
             await db.commit()
 
             return True
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             raise HTTPException(status_code=500, detail="Failed to update user")
 
@@ -91,8 +97,7 @@ class UsersLogic:
         # if not job:
         #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")
         # users = [job.freelancer_id, job.client_id]
-        raise HTTPException(status_code=500, detail="This feature is not implemented yet")
-
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
     @staticmethod
     async def get_user_by_request(
             db: AsyncSession,

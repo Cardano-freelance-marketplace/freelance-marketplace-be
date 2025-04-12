@@ -2,6 +2,7 @@ from typing import Any, Coroutine, Sequence
 
 from fastapi import HTTPException
 from sqlalchemy import delete, update, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from freelance_marketplace.api.utils.redis import Redis
@@ -61,6 +62,11 @@ class SubCategoriesLogic:
             await Redis.invalidate_cache(prefix="subcategories")
 
             return True
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"IntegrityError: {e}")
+            raise HTTPException(status_code=500, detail="Database integrity error.")
+
         except Exception as e:
             print(e)
             raise HTTPException(status_code=500, detail=f"{str(e)}")

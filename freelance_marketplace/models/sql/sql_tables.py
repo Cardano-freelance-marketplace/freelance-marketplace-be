@@ -745,7 +745,7 @@ class Milestones(Base):
     milestone_tx_hash = Column(String(4096), nullable=False)
     milestone_text = Column(Text, nullable=False)
     reward_amount = Column(Float, nullable=False)
-    created_at = Column(TIMESTAMP, default=datetime.now(timezone.utc))
+    created_at = Column(TIMESTAMP(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     client_approved = Column(Boolean, nullable=False, default=False)
     freelancer_approved = Column(Boolean, nullable=False, default=False)
@@ -788,10 +788,6 @@ class Milestones(Base):
                      ):
         try:
             milestone = cls(
-                proposal_id=proposal_id,
-                order_id=order_id,
-                service_id=service_id,
-                request_id=request_id,
                 milestone_tx_hash=milestone_tx_hash,
                 client_id=client_id,
                 freelancer_id=freelancer_id,
@@ -800,6 +796,15 @@ class Milestones(Base):
                 milestone_status_id=milestone_status_id,
             )
             db.add(milestone)
+            await db.flush() ## USE FLUSH TO REFRESH MILESTONE WITH THE MILESTONE_ID PROPERTY BUT WITHOUT NEEDING TO COMMIT FIRST
+            if proposal_id:
+                await db.execute(proposal_milestone_association.insert().values(proposal_id=proposal_id, milestone_id=milestone.milestone_id))
+            if order_id:
+                await db.execute(order_milestone_association.insert().values(order_id=order_id, milestone_id=milestone.milestone_id))
+            if service_id:
+                await db.execute(service_milestone_association.insert().values(service_id=service_id, milestone_id=milestone.milestone_id))
+            if request_id:
+                await db.execute(request_milestone_association.insert().values(request_id=request_id, milestone_id=milestone.milestone_id))
             await db.commit()
             await db.refresh(milestone)
             return milestone
