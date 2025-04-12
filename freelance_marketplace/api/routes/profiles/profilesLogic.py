@@ -45,8 +45,6 @@ class ProfilesLogic:
             user_id: int,
             profile: ProfileRequest
     ) -> bool:
-
-        # TODO WHEN UPDATING A USER SET, UPDATED_AT TO NOW()
         try:
             stmt = (
                 update(Profiles)

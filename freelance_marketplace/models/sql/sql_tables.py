@@ -15,6 +15,7 @@ from freelance_marketplace.models.enums.orderStatus import OrderStatus as OrderS
 from freelance_marketplace.models.enums.proposalStatus import ProposalStatus as ProposalStatusEnum
 from freelance_marketplace.models.enums.serviceStatus import ServiceStatus as ServiceStatusEnum
 from freelance_marketplace.models.enums.requestStatus import RequestStatus as RequestStatusEnum
+from freelance_marketplace.models.enums.orderStatus import OrderStatus as OrderStatusEnum
 
 profile_skills = Table(
     "profile_skills",
@@ -1015,8 +1016,9 @@ class Order(Base):
     service_id = Column(Integer, ForeignKey("services.service_id", ondelete="CASCADE"), nullable=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    deleted = Column(Boolean, default=False)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
-    order_status_id = Column(Integer, ForeignKey("order_status.order_status_id", ondelete="CASCADE"), nullable=False)
+    order_status_id = Column(Integer, ForeignKey("order_status.order_status_id", ondelete="CASCADE"), default=OrderStatusEnum.DRAFT.value, nullable=False)
 
     # Relationships
     status = relationship("OrderStatus", back_populates="orders")
@@ -1029,13 +1031,11 @@ class Order(Base):
                      db: AsyncSession,
                      service_id: int,
                      client_id: int,
-                     milestone_id: int = None
                      ):
         try:
             order = cls(
                 service_id=service_id,
                 client_id=client_id,
-                milestone_id=milestone_id
             )
             db.add(order)
             await db.commit()
