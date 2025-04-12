@@ -25,16 +25,13 @@ class UsersLogic:
             db: AsyncSession,
             user_id: int
     )-> bool:
-        try:
-            transaction = delete(User).where(User.user_id == user_id)
-            result = await db.execute(transaction)
-            await db.commit()
-            if result.rowcount > 0:
-                return True
-            else:
-                raise HTTPException(status_code=404, detail="User role not found or already deleted")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+        transaction = delete(User).where(User.user_id == user_id)
+        result = await db.execute(transaction)
+        await db.commit()
+        if result.rowcount > 0:
+            return True
+        else:
+            raise HTTPException(status_code=404, detail="User role not found or already deleted")
 
 
     @staticmethod
@@ -77,15 +74,11 @@ class UsersLogic:
             db: AsyncSession,
             user_id
     ) -> User:
-        try:
-            result = await db.execute(select(User).where(User.user_id == user_id))
-            user = result.scalars().first()
-            if not user:
-                raise HTTPException(status_code=404, detail=f"User not found")
-            return user
-
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+        result = await db.execute(select(User).where(User.user_id == user_id))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail=f"User not found")
+        return user
 
     @staticmethod
     async def get_user_by_service(

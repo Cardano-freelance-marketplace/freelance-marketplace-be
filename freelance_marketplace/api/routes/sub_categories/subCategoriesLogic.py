@@ -120,20 +120,16 @@ class SubCategoriesLogic:
             category_id: int
     ) -> Sequence[SubCategory]:
         cache_key = f'subcategories:category:{category_id}'
-        try:
-            redis_data = await Redis.get_redis_data(cache_key)
-            if redis_data:
-                return redis_data
+        redis_data = await Redis.get_redis_data(cache_key)
+        if redis_data:
+            return redis_data
 
-            result = await db.execute(
-                select(SubCategory)
-                .where(SubCategory.category_id == category_id)
-            )
-            sub_categories = result.scalars().all()
-            if not sub_categories:
-                raise HTTPException(status_code=404, detail=f"Sub-categories not found")
-            await Redis.set_redis_data(cache_key, data=sub_categories)
-            return sub_categories
-
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+        result = await db.execute(
+            select(SubCategory)
+            .where(SubCategory.category_id == category_id)
+        )
+        sub_categories = result.scalars().all()
+        if not sub_categories:
+            raise HTTPException(status_code=404, detail=f"Sub-categories not found")
+        await Redis.set_redis_data(cache_key, data=sub_categories)
+        return sub_categories

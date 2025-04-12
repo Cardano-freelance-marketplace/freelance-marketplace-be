@@ -30,7 +30,6 @@ class ServicesLogic:
             db: AsyncSession,
             service_id: int
     )-> bool:
-        try:
             transaction = delete(Services).where(Services.service_id == service_id)
             result = await db.execute(transaction)
             await db.commit()
@@ -38,8 +37,6 @@ class ServicesLogic:
                 return True
             else:
                 raise HTTPException(status_code=404, detail="Service not found or already deleted")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 
     @staticmethod
@@ -101,27 +98,20 @@ class ServicesLogic:
             db: AsyncSession,
             service_id: int
     ) -> Services:
-        try:
-            result = await db.execute(select(Services).where(Services.service_id == service_id))
-            service = result.scalars().first()
-            if not service:
-                raise HTTPException(status_code=404, detail=f"Service not found")
-            return service
-
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+        result = await db.execute(select(Services).where(Services.service_id == service_id))
+        service = result.scalars().first()
+        if not service:
+            raise HTTPException(status_code=404, detail=f"Service not found")
+        return service
 
     @staticmethod
     async def get_services(
             db: AsyncSession,
     ) -> Sequence[Services]:
-        try:
-            result = await db.execute(
-                select(Services)
-            )
-            services = result.scalars().all()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+        result = await db.execute(
+            select(Services)
+        )
+        services = result.scalars().all()
 
         if not services:
             raise HTTPException(status_code=404, detail=f"Services not found")
@@ -133,14 +123,11 @@ class ServicesLogic:
             db: AsyncSession,
             freelancer_id: int
     ) -> Sequence[Services]:
-        try:
-            result = await db.execute(
-                select(Services)
-                .where(Services.freelancer_id == freelancer_id)
-            )
-            services = result.scalars().all()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+        result = await db.execute(
+            select(Services)
+            .where(Services.freelancer_id == freelancer_id)
+        )
+        services = result.scalars().all()
 
         if not services:
             raise HTTPException(status_code=404, detail=f"Services not found")
@@ -152,14 +139,11 @@ class ServicesLogic:
             db: AsyncSession,
             sub_category_id: int
     ) -> Sequence[Services]:
-        try:
-            result = await db.execute(
-                select(Services)
-                .where(Services.sub_category_id == sub_category_id)
-            )
-            services = result.scalars().all()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+        result = await db.execute(
+            select(Services)
+            .where(Services.sub_category_id == sub_category_id)
+        )
+        services = result.scalars().all()
 
         if not services:
             raise HTTPException(status_code=404, detail=f"Services not found")

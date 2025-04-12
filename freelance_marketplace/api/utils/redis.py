@@ -1,7 +1,8 @@
-import asyncio
 import json
 from enum import Enum
+
 import redis.asyncio as redis
+from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from freelance_marketplace.core.config import settings
@@ -33,11 +34,14 @@ class Redis:
 
     @staticmethod
     async def get_redis_data(cache_key: str):
-        redis_data = await redis_client.get(cache_key)
-        if redis_data:
-            return json.loads(redis_data)
-        else:
-            return None
+        try:
+            redis_data = await redis_client.get(cache_key)
+            if redis_data:
+                return json.loads(redis_data)
+            else:
+                return None
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     @staticmethod
     async def set_redis_data(cache_key: str, data):

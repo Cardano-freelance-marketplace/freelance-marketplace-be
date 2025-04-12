@@ -76,38 +76,32 @@ class OrdersLogic:
             db: AsyncSession,
             order_id: int
     ) -> Order:
-        try:
-            cache_key = f"orders:{order_id}"
-            redis_data = await Redis.get_redis_data(cache_key)
-            if redis_data:
-                return redis_data
+        cache_key = f"orders:{order_id}"
+        redis_data = await Redis.get_redis_data(cache_key)
+        if redis_data:
+            return redis_data
 
-            result = await db.execute(
-                select(Order)
-                .where(Order.order_id == order_id)
-            )
-            order = result.scalars().first()
-            if not order:
-                raise HTTPException(status_code=404, detail=f"Order not found")
+        result = await db.execute(
+            select(Order)
+            .where(Order.order_id == order_id)
+        )
+        order = result.scalars().first()
+        if not order:
+            raise HTTPException(status_code=404, detail=f"Order not found")
 
-            await Redis.set_redis_data(cache_key, order)
-            return order
-
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+        await Redis.set_redis_data(cache_key, order)
+        return order
 
     @staticmethod
     async def get_all(
             db: AsyncSession,
             query_params: dict
     ) -> Sequence[Order]:
-        try:
-            transaction = await build_transaction_query(
-                object=Order,
-                query_params=query_params
-            )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
+
+        transaction = await build_transaction_query(
+            object=Order,
+            query_params=query_params
+        )
 
         result = await db.execute(transaction)
         orders = result.scalars().all()
