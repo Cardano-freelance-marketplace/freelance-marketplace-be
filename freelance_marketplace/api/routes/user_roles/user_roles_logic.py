@@ -3,7 +3,7 @@ from sqlalchemy.orm import selectinload
 from starlette.exceptions import HTTPException
 from sqlalchemy import select
 
-from freelance_marketplace.api.utils.redis import Redis
+from freelance_marketplace.api.services.redis import Redis
 from freelance_marketplace.models.sql.sql_tables import Role, User
 
 

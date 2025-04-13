@@ -6,7 +6,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from freelance_marketplace.api.utils.redis import redis_client
+from freelance_marketplace.api.services.redis import redis_client
 from freelance_marketplace.core.config import settings
 from freelance_marketplace.middleware.response_wrapper import transform_response_middleware
 from dotenv import load_dotenv
@@ -25,6 +25,7 @@ from freelance_marketplace.api.routes.milestones.milestones import router as mil
 from freelance_marketplace.api.routes.orders.orders import router as orders_router
 from freelance_marketplace.api.routes.proposals.proposals import router as proposals_router
 from freelance_marketplace.api.routes.transactions.transactions import router as transactions_router
+from freelance_marketplace.api.routes.conversations.conversations import router as conversations_router
 from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
 from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneStatus, WalletTypes, RequestStatus, \
@@ -70,6 +71,7 @@ app.include_router(milestones_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
 app.include_router(proposals_router, prefix="/api/v1")
 app.include_router(transactions_router, prefix="/api/v1")
+app.include_router(conversations_router, prefix="/api/v1")
 
 
 @app.on_event("startup")

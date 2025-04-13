@@ -2,7 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 
 from freelance_marketplace.core.config import settings
-from freelance_marketplace.models.no_sql.message import Message
+from freelance_marketplace.models.no_sql.conversation import Conversation
 from freelance_marketplace.models.no_sql.notification import Notification
 from freelance_marketplace.models.no_sql.portfolio import Portfolio
 from freelance_marketplace.models.no_sql.wishlist import Wishlist
@@ -14,7 +14,7 @@ class Mongo:
         self.database = self.client.get_database(settings.mongo.database_name)
 
     async def init_mongo(self):
-        await init_beanie(database=self.database, document_models=[Wishlist, Notification, Portfolio, Message])
+        await init_beanie(database=self.database, document_models=[Wishlist, Notification, Portfolio, Conversation])
 
     @staticmethod
     async def replace_item(existing_item, new_item):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 
-from freelance_marketplace.api.utils.redis import Redis
+from freelance_marketplace.api.services.redis import Redis
 from freelance_marketplace.db.no_sql.mongo import Mongo
 from freelance_marketplace.models.no_sql.portfolio import Portfolio
 from freelance_marketplace.models.no_sql.request_models.portfolioRequest import PortfolioRequest

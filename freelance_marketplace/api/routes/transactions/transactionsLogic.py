@@ -4,7 +4,7 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from freelance_marketplace.api.utils.redis import Redis
+from freelance_marketplace.api.services.redis import Redis
 from freelance_marketplace.api.utils.sql_util import build_transaction_query, soft_delete
 from freelance_marketplace.models.sql.request_model.TransactionRequest import TransactionRequest
 from freelance_marketplace.models.sql.sql_tables import Transaction

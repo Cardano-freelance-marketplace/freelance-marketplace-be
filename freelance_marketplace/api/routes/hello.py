@@ -1,11 +1,7 @@
-from bson import ObjectId
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter
 from pycardano import Address, OgmiosChainContext, Network
 
-from freelance_marketplace.api.utils.data_manipulation_utils import get_object_id
 from freelance_marketplace.core.config import settings
-from freelance_marketplace.db.no_sql.mongo import Mongo
-from freelance_marketplace.models.no_sql.notification import Notification
 
 router = APIRouter()
 

@@ -1,14 +1,13 @@
 from typing import Sequence
 from fastapi import HTTPException
-from sqlalchemy import delete, update, select
+from sqlalchemy import update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
-from freelance_marketplace.api.utils.redis import Redis
+from freelance_marketplace.api.services.redis import Redis
 from freelance_marketplace.api.utils.sql_util import soft_delete, build_transaction_query
 from freelance_marketplace.models.sql.request_model.UserRequest import UserRequest
-from freelance_marketplace.models.sql.sql_tables import User, Profiles
+from freelance_marketplace.models.sql.sql_tables import User
 
 
 class UsersLogic:

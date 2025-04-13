@@ -55,7 +55,7 @@ class Redis:
             assert prefix
 
         if prefix:
-            cache_key = await Redis.generate_cache_key(query_params=query_params, prefix=prefix)
+            cache_key = await Redis.__generate_cache_key(query_params=query_params, prefix=prefix)
             return await Redis.__get_redis_data(cache_key=cache_key), cache_key
         if match:
             return await Redis.__get_redis_data(cache_key=match), match
@@ -75,6 +75,7 @@ class Redis:
             print(f"{str(e)}")
             return False
 
+
     @staticmethod
     async def invalidate_cache(prefix: str):
         try:
@@ -88,7 +89,7 @@ class Redis:
             return False
 
     @staticmethod
-    async def generate_cache_key(prefix: str, query_params: dict = None) -> str:
+    async def __generate_cache_key(prefix: str, query_params: dict = None) -> str:
         if not query_params:
             return f"{prefix}:all"
 
@@ -99,6 +100,7 @@ class Redis:
         hashed_key = hashlib.md5(key_string.encode()).hexdigest()
 
         return f"{prefix}:{hashed_key}"
+
 
 redis_client = Redis().get_client()
 

@@ -73,7 +73,7 @@ if __name__ == "__main__":
     file_storage = FileStorage(bucket_name=bucket_name)
 
     # Test uploading a file
-    file_path = "data_manipulation_utils.py"  # Make sure this file exists in your local directory
+    file_path = "../utils/data_manipulation_utils.py"  # Make sure this file exists in your local directory
     s3_key = f"{file_storage.generate_file_hash(file_path=file_path)}{str(uuid.uuid4())}"
     s3_key_with_prefix = f"documents/{s3_key}"
     print(f"Uploading {file_path} to {s3_key_with_prefix}...")
