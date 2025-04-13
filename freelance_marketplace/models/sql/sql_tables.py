@@ -1129,9 +1129,9 @@ class Transaction(Base):
     transaction_id = Column(Integer, primary_key=True, autoincrement=True)
     milestone_id = Column(Integer, ForeignKey("milestones.milestone_id", ondelete="CASCADE"), nullable=False)
     amount = Column(DECIMAL(10, 2), nullable=False)
-    token_name = Column(String(50), nullable=True)
+    token_name = Column(String(50), nullable=False) ## TODO Maybe in the future this will need to be a table with all valid tokens.
     deleted = Column(Boolean, nullable=False, default=False)
-    receiver_address = Column(Text, nullable=True)
+    receiver_address = Column(Text, nullable=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.now(timezone.utc))

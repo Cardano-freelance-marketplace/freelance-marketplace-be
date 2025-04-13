@@ -37,7 +37,7 @@ class OrdersLogic:
                 await Redis.invalidate_cache("orders")
                 return True
             else:
-                raise HTTPException(status_code=404, detail="Notification not found or already deleted")
+                raise HTTPException(status_code=404, detail="Order not found or already deleted")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 

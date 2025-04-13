@@ -24,6 +24,7 @@ from freelance_marketplace.api.routes.requests.requests import router as request
 from freelance_marketplace.api.routes.milestones.milestones import router as milestones_router
 from freelance_marketplace.api.routes.orders.orders import router as orders_router
 from freelance_marketplace.api.routes.proposals.proposals import router as proposals_router
+from freelance_marketplace.api.routes.transactions.transactions import router as transactions_router
 from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
 from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneStatus, WalletTypes, RequestStatus, \
@@ -68,6 +69,7 @@ app.include_router(reviews_router, prefix="/api/v1")
 app.include_router(milestones_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
 app.include_router(proposals_router, prefix="/api/v1")
+app.include_router(transactions_router, prefix="/api/v1")
 
 
 @app.on_event("startup")

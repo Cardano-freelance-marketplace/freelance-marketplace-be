@@ -35,7 +35,7 @@ class CategoriesLogic:
             await Redis.invalidate_cache(prefix='categories')
             return True
         else:
-            raise HTTPException(status_code=404, detail="Notification not found or already deleted")
+            raise HTTPException(status_code=404, detail="Category not found or already deleted")
 
 
     @staticmethod
