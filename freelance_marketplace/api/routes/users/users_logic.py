@@ -98,7 +98,6 @@ class UsersLogic:
             .where(User.user_id == user_id)
         )
         user = result.scalars().first()
-        ## TODO GET PORTFOLIO FROM NOSQL
         if not user:
             raise HTTPException(status_code=404, detail=f"User not found")
         await Redis.set_redis_data(cache_key=cache_key, data=user)
