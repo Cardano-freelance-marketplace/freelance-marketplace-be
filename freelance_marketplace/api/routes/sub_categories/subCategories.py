@@ -14,17 +14,20 @@ async def get_sub_category(
     return await SubCategoriesLogic.get(db=db, sub_category_id=sub_category_id)
 
 @router.get("/sub-categories", tags=["sub-categories"])
-async def get_all_sub_categories(
+async def get_all(
         db: AsyncSession = Depends(get_sql_db),
+        sub_category_name: int | None = Query(None, description="Filter by sub_category_name"),
+        sub_category_description: int | None = Query(None, description="Filter by sub_category_description"),
+        category_id: int | None = Query(None, description="Filter by category_id"),
+        deleted: bool | None = Query(False, description="Filter by deleted")
 ):
-    return await SubCategoriesLogic.get_all(db=db)
-
-@router.get("/category/sub-categories", tags=["sub-categories"])
-async def get_all_sub_categories_by_category(
-        db: AsyncSession = Depends(get_sql_db),
-        category_id: int = Query(...)
-):
-    return await SubCategoriesLogic.get_all_by_category(db=db, category_id=category_id)
+    query_params: dict = {
+        'sub_category_name': sub_category_name,
+        'sub_category_description': sub_category_description,
+        "category_id": category_id,
+        "deleted": deleted
+    }
+    return await SubCategoriesLogic.get_all(db=db, query_params=query_params)
 
 @router.delete("/sub-category", tags=["sub-categories"])
 async def delete_sub_category(

@@ -15,30 +15,20 @@ async def get_request(
     return await RequestsLogic.get_request(db=db, request_id=request_id)
 
 @router.get("/requests", tags=["requests"])
-async def get_request(
+async def get_all(
         db: AsyncSession = Depends(get_sql_db),
+        sub_category_id: int | None = Query(None, description="Filter by sub_category_id"),
+        request_status_id: int | None = Query(None, description="Filter by request_status_id (CANCELED = 0, DRAFT = 1, REQUESTING_FREELANCER = 2, IN_PROGRESS = 3, COMPLETED = 4)"),
+        client_id: int | None = Query(None, description="Filter by client_id"),
+        deleted: bool | None = Query(False, description="Filter by deleted")
 ):
-    return await RequestsLogic.get_requests(db=db)
-
-@router.get("/requests", tags=["requests"])
-async def get_requests(
-        db: AsyncSession = Depends(get_sql_db),
-):
-    return await RequestsLogic.get_requests(db=db)
-
-@router.get("/user/requests", tags=["requests"])
-async def get_user_requests(
-        db: AsyncSession = Depends(get_sql_db),
-        client_id: int = Query(...)
-):
-    return await RequestsLogic.get_user_requests(db=db, client_id=client_id)
-
-@router.get("/sub-category/requests", tags=["requests"])
-async def get_sub_category_requests(
-        db: AsyncSession = Depends(get_sql_db),
-        sub_category_id: int = Query(...)
-):
-    return await RequestsLogic.get_sub_category_requests(db=db, sub_category_id=sub_category_id)
+    query_params: dict = {
+        'request_status_id': request_status_id,
+        "client_id": client_id,
+        "deleted": deleted,
+        "sub_category_id": sub_category_id
+    }
+    return await RequestsLogic.get_sub_category_requests(db=db, query_params=query_params)
 
 @router.patch("/request", tags=["requests"])
 async def update_request(

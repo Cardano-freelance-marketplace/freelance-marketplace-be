@@ -19,6 +19,7 @@ class ProposalsLogic:
     ) -> bool:
         try:
             await Proposal.create(db=db, request_id=request_id, **proposal_data.model_dump())
+            await Redis.invalidate_cache("proposals")
             return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
@@ -32,6 +33,7 @@ class ProposalsLogic:
         try:
             result = await soft_delete(db=db, object=Proposal, attribute="proposal_id", object_id=proposal_id)
             if result.rowcount > 0:
+                await Redis.invalidate_cache("proposals")
                 return True
             else:
                 raise HTTPException(status_code=404, detail="Notification not found or already deleted")
@@ -54,6 +56,7 @@ class ProposalsLogic:
             )
             await db.execute(stmt)
             await db.commit()
+            await Redis.invalidate_cache("proposals")
             return True
 
         except IntegrityError as e:
@@ -70,8 +73,7 @@ class ProposalsLogic:
             proposal_id: int
     ) -> Proposal:
         try:
-            cache_key = f"proposals:{proposal_id}"
-            redis_data = await Redis.get_redis_data(cache_key)
+            redis_data, cache_key = await Redis.get_redis_data(match=f"proposals:{proposal_id}")
             if redis_data:
                 return redis_data
 
@@ -95,6 +97,10 @@ class ProposalsLogic:
             query_params: dict
     ) -> Sequence[Proposal]:
         try:
+            redis_data, cache_key = await Redis.get_redis_data(prefix="proposals", query_params=query_params)
+            if redis_data:
+                return redis_data
+
             transaction = await build_transaction_query(
                 object=Proposal,
                 query_params=query_params
@@ -106,5 +112,7 @@ class ProposalsLogic:
         proposals = result.scalars().all()
         if not proposals:
             raise HTTPException(status_code=404, detail=f"proposals not found")
+
+        await Redis.set_redis_data(cache_key, data=proposals)
         return proposals
 

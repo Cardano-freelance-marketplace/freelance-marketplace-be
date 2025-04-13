@@ -17,22 +17,28 @@ async def get_service(
 @router.get("/services", tags=["services"])
 async def get_services(
         db: AsyncSession = Depends(get_sql_db),
+        service_status_id: int | None = Query(None,
+                                            description="Filter by service_status_id (CANCELED = 0, DRAFT = 1, AVAILABLE = 2, CLOSED = 3)"),
+        service_id: int | None = Query(None, description="Filter by service_id"),
+        title: int | None = Query(None, description="Filter by title"),
+        description: bool | None = Query(False, description="Filter by description"),
+        sub_category_id: bool | None = Query(False, description="Filter by sub_category_id"),
+        total_price: bool | None = Query(False, description="Filter by total_price"),
+        ## TODO tags: bool | None = Query(False, description="Filter by tags"),
+        deleted: bool | None = Query(False, description="Filter by deleted"),
+        freelancer_id: bool | None = Query(False, description="Filter by freelancer_id"),
 ):
-    return await ServicesLogic.get_services(db=db)
-
-@router.get("/user/services", tags=["services"])
-async def get_user_services(
-        db: AsyncSession = Depends(get_sql_db),
-        freelancer_id: int = Query(...)
-):
-    return await ServicesLogic.get_user_services(db=db, freelancer_id=freelancer_id)
-
-@router.get("/sub-category/services", tags=["services"])
-async def get_sub_category_services(
-        db: AsyncSession = Depends(get_sql_db),
-        sub_category_id: int = Query(...)
-):
-    return await ServicesLogic.get_sub_category_services(db=db, sub_category_id=sub_category_id)
+    query_params: dict = {
+        'service_status_id': service_status_id,
+        'service_id': service_id,
+        "title": title,
+        "description": description,
+        "sub_category_id": sub_category_id,
+        "total_price": total_price,
+        "deleted": deleted,
+        "freelancer_id": freelancer_id
+    }
+    return await ServicesLogic.get_services(db=db, query_params=query_params)
 
 @router.patch("/service", tags=["services"])
 async def update_service(

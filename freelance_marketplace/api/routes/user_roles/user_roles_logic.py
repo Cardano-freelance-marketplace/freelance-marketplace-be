@@ -11,8 +11,7 @@ class UserRolesLogic:
 
     @staticmethod
     async def get_all(db: AsyncSession):
-        cache_key = f"user_roles:all"
-        redis_data = await Redis.get_redis_data(cache_key)
+        redis_data, cache_key = await Redis.get_redis_data(match=f"user_roles:all")
         if redis_data:
             return redis_data
 
@@ -30,8 +29,7 @@ class UserRolesLogic:
             db: AsyncSession,
             user_id: int
     ):
-        cache_key = f"user_roles:{user_id}"
-        redis_data = await Redis.get_redis_data(cache_key)
+        redis_data, cache_key = await Redis.get_redis_data(match=f"user_roles:{user_id}")
         if redis_data:
             return redis_data
 

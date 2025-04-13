@@ -15,7 +15,7 @@ async def get_proposal(
     return await ProposalsLogic.get(db=db, proposal_id=proposal_id)
 
 @router.get("/proposals", tags=["proposals"])
-async def get_all_proposals(
+async def get_all(
         db: AsyncSession = Depends(get_sql_db),
         proposal_status_id: int | None = Query(None, description="Filter by proposal_status_id (CANCELED = 0, DRAFT = 1, PENDING = 2, ACCEPTED = 3, IN_PROGRESS = 4, COMPLETED = 5, DENIED_BY_FREELANCER = 6)"),
         request_id: int | None = Query(None, description="Filter by request_id"),

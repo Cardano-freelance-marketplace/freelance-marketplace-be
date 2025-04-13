@@ -32,7 +32,7 @@ async def update_user(
     return await UsersLogic.update(db=db, user_id=user_id, user=user)
 
 @router.get("/user", tags=["users"])
-async def get_single_user(
+async def get_user(
         user_id: int = Query(...),
         db: AsyncSession = Depends(get_sql_db)
 ):
@@ -43,22 +43,20 @@ async def get_single_user(
 
 @router.get("/users", tags=["users"])
 async def get_all(
-        db: AsyncSession = Depends(get_sql_db)
+        db: AsyncSession = Depends(get_sql_db),
+        active: int | None = Query(None, description="Filter by active"),
+        deleted: int | None = Query(None, description="Filter by deleted"),
+        wallet_public_address: str | None = Query(None, description="Filter by wallet_public_address"),
+        wallet_type_id: int | None = Query(None, description="Filter by wallet_type_id"),
+        role_id: int | None = Query(False, description="Filter by role_id")
 ):
-    return await UsersLogic.get_all(db=db)
 
-@router.get("/user/service", tags=["users"])
-async def get_users_by_service(
-        service_id: int = Query(...),
-        db: AsyncSession = Depends(get_sql_db)
-):
-    raise HTTPException(status_code=404, detail="Endpoint deprecated")
-    # return await UsersLogic.get_user_by_service(db=db, service_id=service_id)
-
-@router.get("/user/request", tags=["users"])
-async def get_users_by_request(
-        request_id: int = Query(...),
-        db: AsyncSession = Depends(get_sql_db)
-):
-    # return await UsersLogic.get_user_by_request(db=db, request_id=request_id)
-    raise HTTPException(status_code=404, detail="Endpoint deprecated")
+    ## TODO IMPROVE QUERY PARAMS TO QUERY BY USER PROFILE PROPERTIES, LIKE NAME ETC..
+    query_params: dict = {
+        'active': active,
+        'deleted': deleted,
+        "wallet_public_address": wallet_public_address,
+        "wallet_type_id": wallet_type_id,
+        "role_id": role_id
+    }
+    return await UsersLogic.get_all(db=db, query_params=query_params)

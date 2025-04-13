@@ -1,5 +1,7 @@
+import hashlib
 import json
 from enum import Enum
+from typing import Any, Coroutine
 
 import redis.asyncio as redis
 from fastapi import HTTPException
@@ -33,7 +35,7 @@ class Redis:
         return self.client
 
     @staticmethod
-    async def get_redis_data(cache_key: str):
+    async def __get_redis_data(cache_key: str):
         try:
             redis_data = await redis_client.get(cache_key)
             if redis_data:
@@ -42,6 +44,21 @@ class Redis:
                 return None
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+    @staticmethod
+    async def get_redis_data(prefix: str = None, match: str = None,  query_params: dict = None) -> tuple[Any | None, str]:
+        assert prefix or match
+        assert not (prefix and match)
+        assert (query_params and prefix)
+        if prefix:
+            cache_key = await Redis.generate_cache_key(query_params=query_params, prefix=prefix)
+            return await Redis.__get_redis_data(cache_key=cache_key), cache_key
+        if match:
+            return await Redis.__get_redis_data(cache_key=match), match
+        raise HTTPException(status_code=500, detail=f"Prefix or match not provided")
+
+
+
 
     @staticmethod
     async def set_redis_data(cache_key: str, data):
@@ -57,7 +74,7 @@ class Redis:
     @staticmethod
     async def invalidate_cache(prefix: str):
         try:
-            cursor, keys = await redis_client.scan(match=f"{prefix}*", count=1000)
+            cursor, keys = await redis_client.scan(match=f"{prefix}*", count=100_000)
             if keys:
                 await redis_client.delete(*keys)
 
@@ -65,6 +82,19 @@ class Redis:
         except Exception as e:
             print(f"Error invalidating cache for prefix {prefix}: {e}")
             return False
+
+    @staticmethod
+    async def generate_cache_key(prefix: str, query_params: dict = None) -> str:
+        if not query_params:
+            return f"{prefix}:all"
+
+        filtered_params = {key: value for key, value in query_params.items() if value is not None}
+        sorted_items = sorted(filtered_params.items())
+        key_string = "&".join(f"{key}={value}" for key, value in sorted_items)
+        #hash to avoid long keys.
+        hashed_key = hashlib.md5(key_string.encode()).hexdigest()
+
+        return f"{prefix}:{hashed_key}"
 
 redis_client = Redis().get_client()
 

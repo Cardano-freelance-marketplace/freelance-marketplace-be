@@ -1,11 +1,11 @@
 from typing import Sequence
-
 from fastapi import HTTPException
 from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from freelance_marketplace.api.utils.sql_util import soft_delete
+from freelance_marketplace.api.utils.redis import Redis
+from freelance_marketplace.api.utils.sql_util import soft_delete, build_transaction_query
 from freelance_marketplace.models.sql.request_model.UserRequest import UserRequest
 from freelance_marketplace.models.sql.sql_tables import User
 
@@ -62,11 +62,23 @@ class UsersLogic:
     @staticmethod
     async def get_all(
             db: AsyncSession,
+            query_params: dict
     ) -> Sequence[User]:
-        result = await db.execute(select(User))
+        redis_data, cache_key = await Redis.get_redis_data(prefix="users", query_params=query_params)
+        if redis_data:
+            return redis_data
+
+        transaction = await build_transaction_query(
+            object=User,
+            query_params=query_params
+        )
+
+        result = await db.execute(transaction)
         users = result.scalars().all()
+
         if not users:
             raise HTTPException(status_code=404, detail="Users not found")
+        await Redis.set_redis_data(cache_key=cache_key, data=users)
         return users
 
     @staticmethod
@@ -74,6 +86,10 @@ class UsersLogic:
             db: AsyncSession,
             user_id
     ) -> User:
+        redis_data, cache_key = await Redis.get_redis_data(match=f"users:{user_id}")
+        if redis_data:
+            return redis_data
+
         result = await db.execute(select(User).where(User.user_id == user_id))
         user = result.scalars().first()
         if not user:

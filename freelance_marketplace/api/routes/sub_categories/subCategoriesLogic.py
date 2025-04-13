@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from freelance_marketplace.api.utils.redis import Redis
-from freelance_marketplace.api.utils.sql_util import soft_delete
+from freelance_marketplace.api.utils.sql_util import soft_delete, build_transaction_query
 from freelance_marketplace.models.sql.request_model.CategoryRequest import CategoryRequest
 from freelance_marketplace.models.sql.request_model.SubCategoryRequest import SubCategoryRequest
 from freelance_marketplace.models.sql.sql_tables import Category, SubCategory
@@ -75,9 +75,8 @@ class SubCategoriesLogic:
             db: AsyncSession,
             sub_category_id: int
     ) -> SubCategory:
-        cache_key = f'subcategories:{sub_category_id}'
         try:
-            redis_data = await Redis.get_redis_data(cache_key)
+            redis_data, cache_key = await Redis.get_redis_data(match=f'subcategories:{sub_category_id}')
             if redis_data:
                 return redis_data
 
@@ -95,40 +94,25 @@ class SubCategoriesLogic:
     @staticmethod
     async def get_all(
             db: AsyncSession,
+            query_params: dict
     ) -> Sequence[SubCategory]:
-        cache_key = 'subcategories:all'
         try:
-            redis_data = await Redis.get_redis_data(cache_key)
+            redis_data, cache_key = await Redis.get_redis_data(prefix='subcategories', query_params=query_params)
             if redis_data:
                 return redis_data
 
-            result = await db.execute(select(SubCategory))
+            transaction = await build_transaction_query(
+                object=SubCategory,
+                query_params=query_params
+            )
+
+            result = await db.execute(transaction)
             sub_categories = result.scalars().all()
             if not sub_categories:
                 raise HTTPException(status_code=404, detail=f"Sub-categories not found")
-            await Redis.set_redis_data(cache_key, data=sub_categories)
 
+            await Redis.set_redis_data(cache_key, data=sub_categories)
             return sub_categories
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
-
-    @staticmethod
-    async def get_all_by_category(
-            db: AsyncSession,
-            category_id: int
-    ) -> Sequence[SubCategory]:
-        cache_key = f'subcategories:category:{category_id}'
-        redis_data = await Redis.get_redis_data(cache_key)
-        if redis_data:
-            return redis_data
-
-        result = await db.execute(
-            select(SubCategory)
-            .where(SubCategory.category_id == category_id)
-        )
-        sub_categories = result.scalars().all()
-        if not sub_categories:
-            raise HTTPException(status_code=404, detail=f"Sub-categories not found")
-        await Redis.set_redis_data(cache_key, data=sub_categories)
-        return sub_categories

@@ -70,18 +70,22 @@ class CategoriesLogic:
             db: AsyncSession,
             category_id: int
     ) -> Category:
+        redis_cache, cache_key = await Redis.get_redis_data(match=f'categories:{category_id}')
+        if redis_cache:
+            return redis_cache
+
         result = await db.execute(select(Category).where(Category.category_id == category_id))
         category = result.scalars().first()
         if not category:
             raise HTTPException(status_code=404, detail=f"Category not found")
+        await Redis.set_redis_data(cache_key=cache_key, data=category)
         return category
 
     @staticmethod
     async def get_all(
             db: AsyncSession,
     ) -> Sequence[Category]:
-        cache_key = 'categories:all'
-        redis_data = await Redis.get_redis_data(cache_key)
+        redis_data, cache_key = await Redis.get_redis_data(match='categories:all')
         if redis_data:
             return redis_data
 

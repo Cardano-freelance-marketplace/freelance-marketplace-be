@@ -50,8 +50,7 @@ async def update_portfolio(
 async def get_single_portfolio(
         user_id: int = Query(...),
 ):
-    cache_key = f"portfolios:{user_id}"
-    redis_data = await Redis.get_redis_data(cache_key)
+    redis_data, cache_key = await Redis.get_redis_data(match=f"portfolios:{user_id}")
     if redis_data:
         return redis_data
     portfolio = await Portfolio.find_one(Portfolio.user_id == user_id)

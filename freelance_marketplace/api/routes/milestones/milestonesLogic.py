@@ -4,7 +4,7 @@ from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.utils.redis import Redis
-from freelance_marketplace.api.utils.sql_util import soft_delete
+from freelance_marketplace.api.utils.sql_util import soft_delete, build_transaction_query
 from freelance_marketplace.models.sql.request_model.MilestoneApproveStatusRequest import MilestoneApproveStatusRequest
 from freelance_marketplace.models.sql.request_model.MilestoneRequest import MilestoneRequest
 from freelance_marketplace.models.sql.sql_tables import Milestones
@@ -13,52 +13,14 @@ from freelance_marketplace.models.sql.sql_tables import Milestones
 class MilestonesLogic:
 
     @staticmethod
-    async def create_by_service(
+    async def create(
             db : AsyncSession,
-            service_id: int,
-            milestone_data: MilestoneRequest
+            milestone_data: MilestoneRequest,
+            create_key: str,
+            create_value: int,
     ) -> bool:
         try:
-            await Milestones.create(db=db, service_id=service_id, **milestone_data.model_dump())
-            await Redis.invalidate_cache(prefix="milestones")
-            return True
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
-
-    @staticmethod
-    async def create_by_request(
-            db : AsyncSession,
-            request_id: int,
-            milestone_data: MilestoneRequest
-    ) -> bool:
-        try:
-            await Milestones.create(db=db, request_id=request_id, **milestone_data.model_dump())
-            await Redis.invalidate_cache(prefix="milestones")
-            return True
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
-
-    @staticmethod
-    async def create_by_proposal(
-            db : AsyncSession,
-            proposal_id: int,
-            milestone_data: MilestoneRequest
-    ) -> bool:
-        try:
-            await Milestones.create(db=db, proposal_id=proposal_id, **milestone_data.model_dump())
-            await Redis.invalidate_cache(prefix="milestones")
-            return True
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
-
-    @staticmethod
-    async def create_by_order(
-            db : AsyncSession,
-            order_id: int,
-            milestone_data: MilestoneRequest
-    ) -> bool:
-        try:
-            await Milestones.create(db=db, order_id=order_id, **milestone_data.model_dump())
+            await Milestones.create(db=db, **{create_key: create_value}, **milestone_data.model_dump())
             await Redis.invalidate_cache(prefix="milestones")
             return True
         except Exception as e:
@@ -96,7 +58,6 @@ class MilestonesLogic:
             await db.execute(stmt)
             await db.commit()
             await Redis.invalidate_cache(prefix="milestones")
-
             return True
 
         except IntegrityError as e:
@@ -147,8 +108,7 @@ class MilestonesLogic:
             db: AsyncSession,
             milestone_id: int
     ) -> Milestones:
-        cache_key = f"milestones:{milestone_id}"
-        redis_data = await Redis.get_redis_data(cache_key)
+        redis_data, cache_key = await Redis.get_redis_data(match=f"milestones:{milestone_id}")
         if redis_data:
             return redis_data
 
@@ -160,88 +120,22 @@ class MilestonesLogic:
         return milestone
 
     @staticmethod
-    async def get_all_by_service(
+    async def get_all(
             db: AsyncSession,
-            service_id: int
+            query_params: dict
     ) -> Sequence[Milestones]:
-        cache_key = f'milestones:service:{service_id}'
-        redis_data = await Redis.get_redis_data(cache_key)
+        redis_data, cache_key = await Redis.get_redis_data(prefix="milestones", query_params=query_params)
         if redis_data:
             return redis_data
 
-        result = await db.execute(
-            select(Milestones)
-            .where(Milestones.milestone_id == service_id)
+        transaction = await build_transaction_query(
+            object=Milestones,
+            query_params=query_params
         )
+        result = await db.execute(transaction)
         milestones = result.scalars().all()
         if not milestones:
             raise HTTPException(status_code=404, detail=f"milestones not found")
 
         await Redis.set_redis_data(cache_key, data=milestones)
         return milestones
-
-
-    @staticmethod
-    async def get_all_by_request(
-            db: AsyncSession,
-            request_id: int
-    ) -> Sequence[Milestones]:
-        cache_key = f'milestones:request:{request_id}'
-        redis_data = await Redis.get_redis_data(cache_key)
-        if redis_data:
-            return redis_data
-
-        result = await db.execute(
-            select(Milestones)
-            .where(Milestones.milestone_id == request_id)
-        )
-        milestones = result.scalars().all()
-        if not milestones:
-            raise HTTPException(status_code=404, detail=f"milestones not found")
-
-        await Redis.set_redis_data(cache_key, data=milestones)
-        return milestones
-
-    @staticmethod
-    async def get_all_by_proposal(
-            db: AsyncSession,
-            proposal_id: int
-    ) -> Sequence[Milestones]:
-        cache_key = f'milestones:proposal:{proposal_id}'
-        redis_data = await Redis.get_redis_data(cache_key)
-        if redis_data:
-            return redis_data
-
-        result = await db.execute(
-            select(Milestones)
-            .where(Milestones.milestone_id == proposal_id)
-        )
-        milestones = result.scalars().all()
-        if not milestones:
-            raise HTTPException(status_code=404, detail=f"milestones not found")
-
-        await Redis.set_redis_data(cache_key, data=milestones)
-        return milestones
-
-    @staticmethod
-    async def get_all_by_order(
-            db: AsyncSession,
-            order_id: int
-    ) -> Sequence[Milestones]:
-        cache_key = f'milestones:order:{order_id}'
-        redis_data = await Redis.get_redis_data(cache_key)
-        if redis_data:
-            return redis_data
-
-        result = await db.execute(
-            select(Milestones)
-            .where(Milestones.milestone_id == order_id)
-        )
-        milestones = result.scalars().all()
-        if not milestones:
-            raise HTTPException(status_code=404, detail=f"milestones not found")
-
-        await Redis.set_redis_data(cache_key, data=milestones)
-        return milestones
-
-

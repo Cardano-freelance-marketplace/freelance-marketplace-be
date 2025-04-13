@@ -4,7 +4,7 @@ from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.utils.redis import Redis
-from freelance_marketplace.api.utils.sql_util import soft_delete
+from freelance_marketplace.api.utils.sql_util import soft_delete, build_transaction_query
 from freelance_marketplace.models.sql.request_model.ReviewRequest import ReviewRequest
 from freelance_marketplace.models.sql.sql_tables import Review
 
@@ -74,9 +74,8 @@ class ReviewsLogic:
             db: AsyncSession,
             review_id: int
     ) -> Review:
-        cache_key = f"reviews:{review_id}"
         try:
-            redis_data = await Redis.get_redis_data(cache_key)
+            redis_data, cache_key = await Redis.get_redis_data(match=f"reviews:{review_id}")
             if redis_data:
                 return redis_data
 
@@ -91,20 +90,20 @@ class ReviewsLogic:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
     @staticmethod
-    async def get_all_by_user(
+    async def get_all(
             db: AsyncSession,
-            user_id: int
+            query_params: dict
     ) -> Sequence[Review]:
         try:
-            cache_key = f'reviews:user:{user_id}'
-            redis_data = await Redis.get_redis_data(cache_key)
-            if redis_data:
-                return redis_data
+            redis_cache, cache_key = await Redis.get_redis_data(prefix="reviews", query_params=query_params)
+            if redis_cache:
+                return redis_cache
 
-            result = await db.execute(
-                select(Review)
-                .where(Review.reviewer_id == user_id)
+            transaction = await build_transaction_query(
+                object=Review,
+                query_params=query_params
             )
+            result = await db.execute(transaction)
             reviews = result.scalars().all()
             if not reviews:
                 raise HTTPException(status_code=404, detail=f"reviews not found")

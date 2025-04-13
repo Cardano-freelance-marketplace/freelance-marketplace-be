@@ -1,10 +1,11 @@
 from typing import Sequence
 from fastapi import HTTPException
-from sqlalchemy import delete, update, select
+from sqlalchemy import update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from freelance_marketplace.api.utils.sql_util import soft_delete
+from freelance_marketplace.api.utils.redis import Redis
+from freelance_marketplace.api.utils.sql_util import soft_delete, build_transaction_query
 from freelance_marketplace.models.enums.requestStatus import RequestStatus
 from freelance_marketplace.models.sql.request_model.RequestRequest import RequestRequest
 from freelance_marketplace.models.sql.sql_tables import Requests
@@ -20,6 +21,7 @@ class RequestsLogic:
     ) -> bool:
         try:
             await Requests.create(db=db, client_id=client_id, **request_data.model_dump())
+            await Redis.invalidate_cache("requests")
             return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
@@ -33,6 +35,7 @@ class RequestsLogic:
         try:
             result = await soft_delete(db=db, object=Requests, attribute="request_id", object_id=request_id)
             if result.rowcount > 0:
+                await Redis.invalidate_cache("requests")
                 return True
             else:
                 raise HTTPException(status_code=404, detail="Request not found or already deleted")
@@ -55,7 +58,7 @@ class RequestsLogic:
             )
             await db.execute(stmt)
             await db.commit()
-
+            await Redis.invalidate_cache("requests")
             return True
 
         except IntegrityError as e:
@@ -82,7 +85,7 @@ class RequestsLogic:
             )
             await db.execute(stmt)
             await db.commit()
-
+            await Redis.invalidate_cache("requests")
             return True
 
         except IntegrityError as e:
@@ -111,56 +114,26 @@ class RequestsLogic:
 
 
     @staticmethod
-    async def get_requests(
+    async def get_all(
             db: AsyncSession,
+            query_params: dict
     ) -> Sequence[Requests]:
         try:
-            result = await db.execute(
-                select(Requests)
+            redis_cache, cache_key = await Redis.get_redis_data(prefix="requests", query_params=query_params)
+            if redis_cache:
+                return redis_cache
+
+            transaction = await build_transaction_query(
+                object=Requests,
+                query_params=query_params
             )
+            result = await db.execute(transaction)
             requests = result.scalars().all()
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
         if not requests:
             raise HTTPException(status_code=404, detail=f"Requests not found")
-        return requests
-
-
-    @staticmethod
-    async def get_user_requests(
-            db: AsyncSession,
-            client_id: int
-    ) -> Sequence[Requests]:
-        try:
-            result = await db.execute(
-                select(Requests)
-                .where(Requests.client_id == client_id)
-            )
-            requests = result.scalars().all()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
-
-        if not requests:
-            raise HTTPException(status_code=404, detail=f"Requests not found")
-        return requests
-
-
-    @staticmethod
-    async def get_sub_category_requests(
-            db: AsyncSession,
-            sub_category_id: int
-    ) -> Sequence[Requests]:
-        try:
-            result = await db.execute(
-                select(Requests)
-                .where(Requests.sub_category_id == sub_category_id)
-            )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{str(e)}")
-
-        requests = result.scalars().all()
-        if not requests:
-            raise HTTPException(status_code=404, detail=f"Requests not found")
+        await Redis.set_redis_data(cache_key=cache_key, data=requests)
         return requests
 

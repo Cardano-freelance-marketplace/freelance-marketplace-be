@@ -20,6 +20,7 @@ class OrdersLogic:
     ) -> bool:
         try:
             await Order.create(db=db, service_id=service_id, **order_data.model_dump())
+            await Redis.invalidate_cache("orders")
             return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
@@ -33,6 +34,7 @@ class OrdersLogic:
         try:
             result = await soft_delete(db=db, object=Order, attribute="order_id", object_id=order_id)
             if result.rowcount > 0:
+                await Redis.invalidate_cache("orders")
                 return True
             else:
                 raise HTTPException(status_code=404, detail="Notification not found or already deleted")
@@ -55,6 +57,7 @@ class OrdersLogic:
             )
             await db.execute(stmt)
             await db.commit()
+            await Redis.invalidate_cache("orders")
             return True
 
         except IntegrityError as e:
@@ -70,8 +73,7 @@ class OrdersLogic:
             db: AsyncSession,
             order_id: int
     ) -> Order:
-        cache_key = f"orders:{order_id}"
-        redis_data = await Redis.get_redis_data(cache_key)
+        redis_data, cache_key = await Redis.get_redis_data(match=f"orders:{order_id}")
         if redis_data:
             return redis_data
 
@@ -91,6 +93,9 @@ class OrdersLogic:
             db: AsyncSession,
             query_params: dict
     ) -> Sequence[Order]:
+        redis_data, cache_key = await Redis.get_redis_data(prefix="orders", query_params=query_params)
+        if redis_data:
+            return redis_data
 
         transaction = await build_transaction_query(
             object=Order,
@@ -101,5 +106,7 @@ class OrdersLogic:
         orders = result.scalars().all()
         if not orders:
             raise HTTPException(status_code=404, detail=f"orders not found")
+
+        await Redis.set_redis_data(cache_key, data=orders)
         return orders
 

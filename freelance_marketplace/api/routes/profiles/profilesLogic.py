@@ -3,6 +3,7 @@ from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from freelance_marketplace.api.utils.redis import Redis
 from freelance_marketplace.api.utils.sql_util import soft_delete
 from freelance_marketplace.models.sql.request_model.ProfileRequests import ProfileRequest
 from freelance_marketplace.models.sql.sql_tables import Profiles
@@ -18,6 +19,7 @@ class ProfilesLogic:
     ) -> bool:
         try:
             await Profiles.create(db=db, user_id=user_id, **profile.model_dump())
+            await Redis.invalidate_cache(f"profiles:{user_id}")
             return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
@@ -31,6 +33,7 @@ class ProfilesLogic:
         try:
             result = await soft_delete(db=db, object=Profiles, attribute="profile_id", object_id=user_id)
             if result.rowcount > 0:
+                await Redis.invalidate_cache(f"profiles:{user_id}")
                 return True
             else:
                 return False
@@ -53,7 +56,7 @@ class ProfilesLogic:
             )
             await db.execute(stmt)
             await db.commit()
-
+            await Redis.invalidate_cache(f"profiles:{user_id}")
             return True
 
         except IntegrityError as e:
@@ -69,12 +72,17 @@ class ProfilesLogic:
     async def get_profile(
             db: AsyncSession,
             user_id
-    ) -> Profiles:
+    ):
         try:
+            redis_cache, cache_key = await Redis.get_redis_data(match=f"profiles:{user_id}")
+            if redis_cache:
+                return redis_cache
+
             result = await db.execute(select(Profiles).where(Profiles.user_id == user_id))
             profile = result.scalars().first()
             if not profile:
                 raise HTTPException(status_code=404, detail=f"User profile not found")
+            await Redis.set_redis_data(cache_key=cache_key, data=profile)
             return profile
 
         except Exception as e:

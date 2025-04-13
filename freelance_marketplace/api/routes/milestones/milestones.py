@@ -1,11 +1,9 @@
-from typing import Sequence
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.routes.milestones.milestonesLogic import MilestonesLogic
 from freelance_marketplace.db.sql.database import get_sql_db
 from freelance_marketplace.models.sql.request_model.MilestoneApproveStatusRequest import MilestoneApproveStatusRequest
 from freelance_marketplace.models.sql.request_model.MilestoneRequest import MilestoneRequest
-from freelance_marketplace.models.sql.sql_tables import Milestones
 
 router = APIRouter()
 
@@ -16,33 +14,34 @@ async def get_milestone(
 ):
     return await MilestonesLogic.get(db=db, milestone_id=milestone_id)
 
-@router.get("/service/milestones", tags=["milestones"])
-async def get_all_milestones_by_service(
+@router.get("/milestones", tags=["milestones"])
+async def get_all(
         db: AsyncSession = Depends(get_sql_db),
-        service_id: int = Query(...)
+        service_id: int | None = Query(None, description="Filter by service_id"),
+        request_id: int | None = Query(None, description="Filter by client_id"),
+        proposal_id: int | None = Query(None, description="Filter by proposal_id"),
+        order_id: int | None = Query(None, description="Filter by order_id"),
+        milestone_status_id: int | None = Query(None,
+                                            description="Filter by milestone_status_id (DRAFT = 0, IN_PROGRESS = 1, COMPLETED = 2)"),
+        client_id: int | None = Query(None, description="Filter by client_id"),
+        freelancer_id: int | None = Query(None, description="Filter by freelancer_id"),
+        client_approved: int | None = Query(None, description="Filter by client_approved"),
+        freelancer_approved: int | None = Query(None, description="Filter by freelancer_approved"),
+        deleted: bool | None = Query(False, description="Filter by deleted")
 ):
-    return await MilestonesLogic.get_all_by_service(db=db, service_id=service_id)
-
-@router.get("/request/milestones", tags=["milestones"])
-async def get_all_milestones_by_request(
-        db: AsyncSession = Depends(get_sql_db),
-        request_id: int = Query(...)
-):
-    return await MilestonesLogic.get_all_by_request(db=db, request_id=request_id)
-
-@router.get("/proposal/milestones", tags=["milestones"])
-async def get_all_milestones_by_proposal(
-        db: AsyncSession = Depends(get_sql_db),
-        proposal_id: int = Query(...)
-):
-    return await MilestonesLogic.get_all_by_proposal(db=db, proposal_id=proposal_id)
-
-@router.get("/order/milestones", tags=["milestones"])
-async def get_all_milestones_by_order(
-        db: AsyncSession = Depends(get_sql_db),
-        order_id: int = Query(...)
-):
-    return await MilestonesLogic.get_all_by_order(db=db, order_id=order_id)
+    query_params: dict = {
+        'milestone_status_id': milestone_status_id,
+        'service_id': service_id,
+        'request_id': request_id,
+        'proposal_id': proposal_id,
+        'order_id': order_id,
+        "client_id": client_id,
+        "freelancer_id": freelancer_id,
+        "client_approved": client_approved,
+        "freelancer_approved": freelancer_approved,
+        "deleted": deleted,
+    }
+    return await MilestonesLogic.get_all(db=db, query_params=query_params)
 
 @router.patch("/milestone", tags=["milestones"])
 async def update_milestone(
@@ -63,37 +62,30 @@ async def update_milestone_status(
 
     return await MilestonesLogic.update_status(db=db, milestone_id=milestone_id, milestone_status_data=milestone_status_data)
 
-@router.post("/service/milestone", tags=["milestones"])
-async def create_service_milestone(
+@router.post("/milestone", tags=["milestones"])
+async def create(
         milestone_data: MilestoneRequest,
-        service_id: int = Query(...),
+        proposal_id: int | None = Query(None),
+        order_id: int | None = Query(None),
+        service_id: int | None = Query(None),
+        request_id: int | None = Query(None),
         db: AsyncSession = Depends(get_sql_db),
 ):
-    return await MilestonesLogic.create_by_service(db=db, milestone_data=milestone_data, service_id=service_id)
+    ids_to_validate = {
+        "proposal_id": proposal_id,
+        "order_id": order_id,
+        "service_id": service_id,
+        "request_id": request_id,
+    }
+    populated_values = {key:value for key, value in ids_to_validate.items() if value is not None}
+    if len(populated_values) != 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Exactly one of service_id, request_id, proposal_id, or order_id must be provided."
+        )
 
-@router.post("/proposal/milestone", tags=["milestones"])
-async def create_proposal_milestone(
-        milestone_data: MilestoneRequest,
-        proposal_id: int = Query(...),
-        db: AsyncSession = Depends(get_sql_db),
-):
-    return await MilestonesLogic.create_by_proposal(db=db, milestone_data=milestone_data, proposal_id=proposal_id)
-
-@router.post("/request/milestone", tags=["milestones"])
-async def create_request_milestone(
-        milestone_data: MilestoneRequest,
-        request_id: int = Query(...),
-        db: AsyncSession = Depends(get_sql_db),
-):
-    return await MilestonesLogic.create_by_request(db=db, milestone_data=milestone_data, request_id=request_id)
-
-@router.post("/order/milestone", tags=["milestones"])
-async def create_order_milestone(
-        milestone_data: MilestoneRequest,
-        order_id: int = Query(...),
-        db: AsyncSession = Depends(get_sql_db),
-):
-    return await MilestonesLogic.create_by_order(db=db, milestone_data=milestone_data, order_id=order_id)
+    create_key, create_value = next(iter(populated_values.items()))
+    return await MilestonesLogic.create(db=db, milestone_data=milestone_data, create_key=create_key, create_value=create_value)
 
 @router.delete("/milestone", tags=["milestones"])
 async def delete_milestone(
