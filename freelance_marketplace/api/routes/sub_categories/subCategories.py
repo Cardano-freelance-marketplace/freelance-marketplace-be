@@ -16,8 +16,8 @@ async def get_sub_category(
 @router.get("/sub-categories", tags=["sub-categories"])
 async def get_all(
         db: AsyncSession = Depends(get_sql_db),
-        sub_category_name: int | None = Query(None, description="Filter by sub_category_name"),
-        sub_category_description: int | None = Query(None, description="Filter by sub_category_description"),
+        sub_category_name: str | None = Query(None, description="Filter by sub_category_name"),
+        sub_category_description: str | None = Query(None, description="Filter by sub_category_description"),
         category_id: int | None = Query(None, description="Filter by category_id"),
         deleted: bool | None = Query(False, description="Filter by deleted")
 ):

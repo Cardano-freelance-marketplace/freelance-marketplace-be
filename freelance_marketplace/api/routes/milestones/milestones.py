@@ -25,8 +25,8 @@ async def get_all(
                                             description="Filter by milestone_status_id (DRAFT = 0, IN_PROGRESS = 1, COMPLETED = 2)"),
         client_id: int | None = Query(None, description="Filter by client_id"),
         freelancer_id: int | None = Query(None, description="Filter by freelancer_id"),
-        client_approved: int | None = Query(None, description="Filter by client_approved"),
-        freelancer_approved: int | None = Query(None, description="Filter by freelancer_approved"),
+        client_approved: bool | None = Query(None, description="Filter by client_approved"),
+        freelancer_approved: bool | None = Query(None, description="Filter by freelancer_approved"),
         deleted: bool | None = Query(False, description="Filter by deleted")
 ):
     query_params: dict = {

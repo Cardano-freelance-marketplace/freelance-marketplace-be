@@ -20,13 +20,13 @@ async def get_services(
         service_status_id: int | None = Query(None,
                                             description="Filter by service_status_id (CANCELED = 0, DRAFT = 1, AVAILABLE = 2, CLOSED = 3)"),
         service_id: int | None = Query(None, description="Filter by service_id"),
-        title: int | None = Query(None, description="Filter by title"),
-        description: bool | None = Query(False, description="Filter by description"),
-        sub_category_id: bool | None = Query(False, description="Filter by sub_category_id"),
-        total_price: bool | None = Query(False, description="Filter by total_price"),
+        title: str | None = Query(None, description="Filter by title"),
+        description: str | None = Query(False, description="Filter by description"),
+        sub_category_id: int | None = Query(False, description="Filter by sub_category_id"),
+        total_price: float | None = Query(False, description="Filter by total_price"),
         ## TODO tags: bool | None = Query(False, description="Filter by tags"),
         deleted: bool | None = Query(False, description="Filter by deleted"),
-        freelancer_id: bool | None = Query(False, description="Filter by freelancer_id"),
+        freelancer_id: int | None = Query(False, description="Filter by freelancer_id"),
 ):
     query_params: dict = {
         'service_status_id': service_status_id,

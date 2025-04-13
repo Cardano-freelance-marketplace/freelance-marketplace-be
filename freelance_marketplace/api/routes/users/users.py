@@ -44,11 +44,11 @@ async def get_user(
 @router.get("/users", tags=["users"])
 async def get_all(
         db: AsyncSession = Depends(get_sql_db),
-        active: int | None = Query(None, description="Filter by active"),
-        deleted: int | None = Query(None, description="Filter by deleted"),
+        active: bool | None = Query(None, description="Filter by active"),
+        deleted: bool | None = Query(None, description="Filter by deleted"),
         wallet_public_address: str | None = Query(None, description="Filter by wallet_public_address"),
         wallet_type_id: int | None = Query(None, description="Filter by wallet_type_id"),
-        role_id: int | None = Query(False, description="Filter by role_id")
+        role_id: int | None = Query(None, description="Filter by role_id")
 ):
 
     ## TODO IMPROVE QUERY PARAMS TO QUERY BY USER PROFILE PROPERTIES, LIKE NAME ETC..

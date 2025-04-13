@@ -16,13 +16,13 @@ async def get_review(
 @router.get("/reviews", tags=["reviews"])
 async def get_all(
         db: AsyncSession = Depends(get_sql_db),
-        deleted: int | None = Query(None, description="Filter by deleted"),
+        deleted: bool | None = Query(None, description="Filter by deleted"),
         ## TODO comment: str | None = Query(None,description="Filter by comment"),
         rating: float | None = Query(None, description="Filter by rating"),
         ## TODO max_rating: float | None = Query(None, description="Filter by max_rating value"),
         ## TODO min_rating: float | None = Query(None, description="Filter by min_rating value"),
         reviewer_id: int | None = Query(None, description="Filter by reviewer_id"),
-        reviewee_id: bool | None = Query(False, description="Filter by reviewee_id")
+        reviewee_id: int | None = Query(False, description="Filter by reviewee_id")
 ):
     query_params: dict = {
         'rating': rating,
