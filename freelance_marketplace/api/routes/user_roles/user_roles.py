@@ -6,13 +6,13 @@ from freelance_marketplace.db.sql.database import get_sql_db
 
 router = APIRouter()
 
-@router.post("/roles", tags=["roles"])
+@router.get("/roles", tags=["roles"])
 async def get_roles(
         db: AsyncSession = Depends(get_sql_db)
 ):
     return await UserRolesLogic.get_all(db)
 
-@router.post("/user/role", tags=["roles"])
+@router.get("/user/role", tags=["roles"])
 async def get_user_role(
         user_id: int = Query(...),
         db: AsyncSession = Depends(get_sql_db)
