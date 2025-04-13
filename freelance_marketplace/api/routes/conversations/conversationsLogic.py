@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from starlette.websockets import WebSocket
 
 from freelance_marketplace.api.services.sockets import manager
@@ -38,4 +39,30 @@ class ConversationsLogic:
     ):
         message_dict = message.model_dump()
         await manager.send_object(receiver_id, message_dict)
+
+    @classmethod
+    async def get_conversation_history(
+            cls,
+            user1: int,
+            user2: int,
+    ):
+        raise HTTPException(status_code=404, detail="Not implemented")
+        ## TODO IMPLEMENT LATER WHEN FRONTEND IS BUILT
+
+    @classmethod
+    async def list_user_conversations(
+            cls,
+            user_id: int
+    ):
+        raise HTTPException(status_code=404, detail="Not implemented")
+        ## TODO IMPLEMENT LATER WHEN FRONTEND IS BUILT
+
+    @classmethod
+    async def mark_messages_as_viewed(
+            cls,
+            with_user_id: int,
+            current_user_id: int,
+    ):
+        raise HTTPException(status_code=404, detail="Not implemented")
+        ## TODO IMPLEMENT LATER WHEN FRONTEND IS BUILT
 
