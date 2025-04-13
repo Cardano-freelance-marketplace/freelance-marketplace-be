@@ -3,6 +3,8 @@ from fastapi import HTTPException
 from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from freelance_marketplace.api.utils.sql_util import soft_delete
 from freelance_marketplace.models.enums.requestStatus import RequestStatus
 from freelance_marketplace.models.sql.request_model.RequestRequest import RequestRequest
 from freelance_marketplace.models.sql.sql_tables import Requests
@@ -29,9 +31,7 @@ class RequestsLogic:
             request_id: int
     )-> bool:
         try:
-            transaction = delete(Requests).where(Requests.request_id == request_id)
-            result = await db.execute(transaction)
-            await db.commit()
+            result = await soft_delete(db=db, object=Requests, attribute="request_id", object_id=request_id)
             if result.rowcount > 0:
                 return True
             else:

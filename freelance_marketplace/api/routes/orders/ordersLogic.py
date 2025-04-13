@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from freelance_marketplace.api.utils.redis import Redis
-from freelance_marketplace.api.utils.sql_util import build_transaction_query
+from freelance_marketplace.api.utils.sql_util import build_transaction_query, soft_delete
 from freelance_marketplace.models.sql.request_model.OrderRequest import OrderRequest
 from freelance_marketplace.models.sql.sql_tables import Order
 
@@ -31,13 +31,7 @@ class OrdersLogic:
             order_id: int
     )-> bool:
         try:
-            stmt = (
-                update(Order)
-                .where(Order.order_id == order_id)
-                .values(deleted=True)
-            )
-            result = await db.execute(stmt)
-            await db.commit()
+            result = await soft_delete(db=db, object=Order, attribute="order_id", object_id=order_id)
             if result.rowcount > 0:
                 return True
             else:

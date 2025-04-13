@@ -4,7 +4,7 @@ from sqlalchemy import update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.utils.redis import Redis
-from freelance_marketplace.api.utils.sql_util import build_transaction_query
+from freelance_marketplace.api.utils.sql_util import build_transaction_query, soft_delete
 from freelance_marketplace.models.sql.request_model.ProposalRequest import ProposalRequest
 from freelance_marketplace.models.sql.sql_tables import Proposal
 
@@ -30,13 +30,7 @@ class ProposalsLogic:
             proposal_id: int
     )-> bool:
         try:
-            stmt = (
-                update(Proposal)
-                .where(Proposal.proposal_id == proposal_id)
-                .values(deleted=True)
-            )
-            result = await db.execute(stmt)
-            await db.commit()
+            result = await soft_delete(db=db, object=Proposal, attribute="proposal_id", object_id=proposal_id)
             if result.rowcount > 0:
                 return True
             else:

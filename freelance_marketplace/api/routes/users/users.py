@@ -52,11 +52,13 @@ async def get_users_by_service(
         service_id: int = Query(...),
         db: AsyncSession = Depends(get_sql_db)
 ):
-    return await UsersLogic.get_user_by_service(db=db, service_id=service_id)
+    raise HTTPException(status_code=404, detail="Endpoint deprecated")
+    # return await UsersLogic.get_user_by_service(db=db, service_id=service_id)
 
 @router.get("/user/request", tags=["users"])
 async def get_users_by_request(
         request_id: int = Query(...),
         db: AsyncSession = Depends(get_sql_db)
 ):
-    return await UsersLogic.get_user_by_request(db=db, request_id=request_id)
+    # return await UsersLogic.get_user_by_request(db=db, request_id=request_id)
+    raise HTTPException(status_code=404, detail="Endpoint deprecated")

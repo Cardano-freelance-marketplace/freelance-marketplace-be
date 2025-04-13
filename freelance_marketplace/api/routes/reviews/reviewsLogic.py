@@ -4,6 +4,7 @@ from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.utils.redis import Redis
+from freelance_marketplace.api.utils.sql_util import soft_delete
 from freelance_marketplace.models.sql.request_model.ReviewRequest import ReviewRequest
 from freelance_marketplace.models.sql.sql_tables import Review
 
@@ -30,9 +31,7 @@ class ReviewsLogic:
             review_id: int
     )-> bool:
         try:
-            transaction = delete(Review).where(Review.review_id == review_id)
-            result = await db.execute(transaction)
-            await db.commit()
+            result = await soft_delete(db=db, object=Review, attribute="review_id", object_id=review_id)
             if result.rowcount > 0:
                 await Redis.invalidate_cache(prefix="reviews")
                 return True

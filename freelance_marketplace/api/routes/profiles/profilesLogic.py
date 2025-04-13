@@ -3,6 +3,7 @@ from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from freelance_marketplace.api.utils.sql_util import soft_delete
 from freelance_marketplace.models.sql.request_model.ProfileRequests import ProfileRequest
 from freelance_marketplace.models.sql.sql_tables import Profiles
 
@@ -28,9 +29,7 @@ class ProfilesLogic:
             user_id: int
     )-> bool:
         try:
-            transaction = delete(Profiles).where(Profiles.user_id == user_id)
-            result = await db.execute(transaction)
-            await db.commit()
+            result = await soft_delete(db=db, object=Profiles, attribute="profile_id", object_id=user_id)
             if result.rowcount > 0:
                 return True
             else:

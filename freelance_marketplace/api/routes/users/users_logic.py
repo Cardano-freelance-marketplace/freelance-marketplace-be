@@ -4,6 +4,8 @@ from fastapi import HTTPException
 from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from freelance_marketplace.api.utils.sql_util import soft_delete
 from freelance_marketplace.models.sql.request_model.UserRequest import UserRequest
 from freelance_marketplace.models.sql.sql_tables import User
 
@@ -25,13 +27,11 @@ class UsersLogic:
             db: AsyncSession,
             user_id: int
     )-> bool:
-        transaction = delete(User).where(User.user_id == user_id)
-        result = await db.execute(transaction)
-        await db.commit()
+        result = await soft_delete(db=db, object=User, attribute="user_id", object_id=user_id)
         if result.rowcount > 0:
             return True
         else:
-            raise HTTPException(status_code=404, detail="User role not found or already deleted")
+            raise HTTPException(status_code=404, detail="User not found or already deleted")
 
 
     @staticmethod
@@ -85,20 +85,21 @@ class UsersLogic:
             db: AsyncSession,
             service_id: int,
     ):
-        ##TODO Create get user by job
+        pass
         # job = await db.execute(select(Job.job_id == job_id))
         # if not job:
         #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")
         # users = [job.freelancer_id, job.client_id]
-        raise HTTPException(status_code=500, detail=f"{str(e)}")
+        # raise HTTPException(status_code=500, detail=f"{str(e)}")
+
     @staticmethod
     async def get_user_by_request(
             db: AsyncSession,
             request_id: int,
     ):
-        ##TODO Create get user by job
+        pass
         # job = await db.execute(select(Job.job_id == job_id))
         # if not job:
         #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")
         # users = [job.freelancer_id, job.client_id]
-        raise HTTPException(status_code=500, detail="This feature is not implemented yet")
+        # raise HTTPException(status_code=500, detail="This feature is not implemented yet")

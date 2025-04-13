@@ -5,6 +5,7 @@ from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from freelance_marketplace.api.utils.sql_util import soft_delete
 from freelance_marketplace.models.enums.serviceStatus import ServiceStatus
 from freelance_marketplace.models.sql.request_model.ServiceRequest import ServiceRequest
 from freelance_marketplace.models.sql.sql_tables import Profiles, Services
@@ -30,13 +31,11 @@ class ServicesLogic:
             db: AsyncSession,
             service_id: int
     )-> bool:
-            transaction = delete(Services).where(Services.service_id == service_id)
-            result = await db.execute(transaction)
-            await db.commit()
-            if result.rowcount > 0:
-                return True
-            else:
-                raise HTTPException(status_code=404, detail="Service not found or already deleted")
+        result = await soft_delete(db=db, object=Services, attribute="service_id", object_id=service_id)
+        if result.rowcount > 0:
+            return True
+        else:
+            raise HTTPException(status_code=404, detail="Service not found or already deleted")
 
 
     @staticmethod

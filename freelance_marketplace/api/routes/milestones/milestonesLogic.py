@@ -4,6 +4,7 @@ from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.utils.redis import Redis
+from freelance_marketplace.api.utils.sql_util import soft_delete
 from freelance_marketplace.models.sql.request_model.MilestoneApproveStatusRequest import MilestoneApproveStatusRequest
 from freelance_marketplace.models.sql.request_model.MilestoneRequest import MilestoneRequest
 from freelance_marketplace.models.sql.sql_tables import Milestones
@@ -69,9 +70,7 @@ class MilestonesLogic:
             milestone_id: int
     )-> bool:
         try:
-            transaction = delete(Milestones).where(Milestones.milestone_id == milestone_id)
-            result = await db.execute(transaction)
-            await db.commit()
+            result = await soft_delete(db=db, object=Milestones, attribute="milestone_id", object_id=milestone_id)
             if result.rowcount > 0:
                 await Redis.invalidate_cache(prefix="milestones")
                 return True
