@@ -49,7 +49,11 @@ class Redis:
     async def get_redis_data(prefix: str = None, match: str = None,  query_params: dict = None) -> tuple[Any | None, str]:
         assert prefix or match
         assert not (prefix and match)
-        assert (query_params and prefix)
+        if prefix:
+            assert query_params
+        if query_params:
+            assert prefix
+
         if prefix:
             cache_key = await Redis.generate_cache_key(query_params=query_params, prefix=prefix)
             return await Redis.__get_redis_data(cache_key=cache_key), cache_key
