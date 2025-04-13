@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 from pycardano import Address, OgmiosChainContext, Network
-
 from freelance_marketplace.core.config import settings
 
 router = APIRouter()

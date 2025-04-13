@@ -57,7 +57,6 @@ class User(Base):
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     creation_date = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
-    active = Column(Boolean, nullable=False, default=True)
     deleted = Column(Boolean, nullable=False, default=False)
     wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
     wallet_type_id = Column(Integer, ForeignKey("wallet_types.wallet_type_id", ondelete="SET NULL"), default=WalletTypeEnum.Lace.value)
