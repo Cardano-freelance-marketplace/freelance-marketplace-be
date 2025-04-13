@@ -46,7 +46,12 @@ class Redis:
             raise HTTPException(status_code=500, detail=str(e))
 
     @staticmethod
-    async def get_redis_data(prefix: str = None, match: str = None,  query_params: dict = None) -> tuple[Any | None, str]:
+    async def get_redis_data(
+            prefix: str = None,
+            match: str = None,
+            query_params: dict = None
+    ) -> tuple[Any | None, str]:
+
         assert prefix or match
         assert not (prefix and match)
         if prefix:
@@ -79,7 +84,7 @@ class Redis:
     @staticmethod
     async def invalidate_cache(prefix: str):
         try:
-            cursor, keys = await redis_client.scan(match=f"{prefix}*", count=100_000)
+            cursor, keys = await redis_client.scan(match=f"{prefix}*", count=100_000_000)
             if keys:
                 await redis_client.delete(*keys)
 
@@ -90,15 +95,11 @@ class Redis:
 
     @staticmethod
     async def __generate_cache_key(prefix: str, query_params: dict = None) -> str:
-        if not query_params:
-            return f"{prefix}:all"
-
         filtered_params = {key: value for key, value in query_params.items() if value is not None}
         sorted_items = sorted(filtered_params.items())
         key_string = "&".join(f"{key}={value}" for key, value in sorted_items)
         #hash to avoid long keys.
         hashed_key = hashlib.md5(key_string.encode()).hexdigest()
-
         return f"{prefix}:{hashed_key}"
 
 

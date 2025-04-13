@@ -3,20 +3,13 @@ from typing import List
 from beanie import Document
 from pydantic import BaseModel
 
-class Attachment(BaseModel):
-    file_name: str
+class File(BaseModel):
+    file_storage_identifier: str
     file_type: str
-    file_data: str  # Base64 or encoded file data
-
-# Model for images
-class Image(BaseModel):
-    image_name: str
-    file_type: str
-    file_data: str
 
 class Projects(Document):
-    images: List[Image]
-    attachments: List[Attachment]
+    images: List[File]
+    attachments: List[File]
     project_title: str
     description: str
     start_date: datetime
@@ -25,7 +18,6 @@ class Projects(Document):
 
 class Portfolio(Document):
     user_id: int
-    portfolio_id: int
     projects: List[Projects]
 
     class Settings:

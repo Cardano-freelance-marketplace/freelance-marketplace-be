@@ -414,7 +414,7 @@ class Profiles(Base):
     first_name = Column(VARCHAR(50), nullable=False)
     last_name = Column(VARCHAR(50), nullable=False)
     bio = Column(VARCHAR(1000), nullable=True)
-    profile_picture = Column(VARCHAR(255), nullable=True)
+    profile_picture_identifier = Column(VARCHAR(255), nullable=True)
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
     updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
