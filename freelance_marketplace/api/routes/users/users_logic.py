@@ -3,11 +3,12 @@ from fastapi import HTTPException
 from sqlalchemy import delete, update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from freelance_marketplace.api.utils.redis import Redis
 from freelance_marketplace.api.utils.sql_util import soft_delete, build_transaction_query
 from freelance_marketplace.models.sql.request_model.UserRequest import UserRequest
-from freelance_marketplace.models.sql.sql_tables import User
+from freelance_marketplace.models.sql.sql_tables import User, Profiles
 
 
 class UsersLogic:
@@ -18,6 +19,7 @@ class UsersLogic:
     ) -> bool:
         try:
             await User.create(db=db, **user.model_dump())
+            await Redis.invalidate_cache("users")
             return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
@@ -29,6 +31,7 @@ class UsersLogic:
     )-> bool:
         result = await soft_delete(db=db, object=User, attribute="user_id", object_id=user_id)
         if result.rowcount > 0:
+            await Redis.invalidate_cache("users")
             return True
         else:
             raise HTTPException(status_code=404, detail="User not found or already deleted")
@@ -49,7 +52,7 @@ class UsersLogic:
             )
             await db.execute(stmt)
             await db.commit()
-
+            await Redis.invalidate_cache("users")
             return True
         except IntegrityError as e:
             await db.rollback()
@@ -90,32 +93,13 @@ class UsersLogic:
         if redis_data:
             return redis_data
 
-        result = await db.execute(select(User).where(User.user_id == user_id))
+        result = await db.execute(
+            select(User)
+            .where(User.user_id == user_id)
+        )
         user = result.scalars().first()
+        ## TODO GET PORTFOLIO FROM NOSQL
         if not user:
             raise HTTPException(status_code=404, detail=f"User not found")
+        await Redis.set_redis_data(cache_key=cache_key, data=user)
         return user
-
-    @staticmethod
-    async def get_user_by_service(
-            db: AsyncSession,
-            service_id: int,
-    ):
-        pass
-        # job = await db.execute(select(Job.job_id == job_id))
-        # if not job:
-        #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")
-        # users = [job.freelancer_id, job.client_id]
-        # raise HTTPException(status_code=500, detail=f"{str(e)}")
-
-    @staticmethod
-    async def get_user_by_request(
-            db: AsyncSession,
-            request_id: int,
-    ):
-        pass
-        # job = await db.execute(select(Job.job_id == job_id))
-        # if not job:
-        #     raise HTTPException(status_code=204, detail=f"Job {job_id} not found")
-        # users = [job.freelancer_id, job.client_id]
-        # raise HTTPException(status_code=500, detail="This feature is not implemented yet")
