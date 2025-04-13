@@ -51,6 +51,9 @@ class FastAPISettings(BaseSettings):
     title: str = "Freelancing Marketplace"
     version: str = "0.1.0"
     description: str = ""
+    secret_key: str = "test"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
 
     class Config:
         env_prefix = "FASTAPI_"

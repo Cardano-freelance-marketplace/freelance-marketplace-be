@@ -70,10 +70,10 @@ class Redis:
 
 
     @staticmethod
-    async def set_redis_data(cache_key: str, data):
+    async def set_redis_data(cache_key: str, data, ex: int = 3600):
         try:
-            categories_encoded = jsonable_encoder(data)
-            await redis_client.set(cache_key, json.dumps(categories_encoded), ex=3600)
+            data_encoded = jsonable_encoder(data)
+            await redis_client.set(cache_key, json.dumps(data_encoded), ex=ex)
             return True
 
         except Exception as e:

@@ -8,6 +8,7 @@ from slowapi.errors import RateLimitExceeded
 
 from freelance_marketplace.api.services.redis import redis_client
 from freelance_marketplace.core.config import settings
+from freelance_marketplace.middleware.access_token_validator import auth_middleware
 from freelance_marketplace.middleware.response_wrapper import transform_response_middleware
 from dotenv import load_dotenv
 from freelance_marketplace.db.sql.database import init_db, AsyncSessionLocal
@@ -54,6 +55,7 @@ app.add_middleware(
 
 # Apply Middlewares
 app.add_middleware(SlowAPIMiddleware)
+app.middleware("http")(auth_middleware)
 app.middleware("http")(transform_response_middleware)
 
 app.include_router(hello_router, prefix="/api/v1")

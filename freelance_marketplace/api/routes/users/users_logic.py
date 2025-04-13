@@ -101,3 +101,17 @@ class UsersLogic:
             raise HTTPException(status_code=404, detail=f"User not found")
         await Redis.set_redis_data(cache_key=cache_key, data=user)
         return user
+
+    @staticmethod
+    async def get_user_by_wallet_address(
+            db: AsyncSession,
+            wallet_public_address: str
+    ) -> User | None:
+        result = await db.execute(
+            select(User)
+            .where(User.wallet_public_address == wallet_public_address)
+        )
+        user = result.scalars().first()
+        if not user:
+            return None
+        return user
