@@ -27,7 +27,6 @@ class RoleBase(BaseModel):
 class UserModel(BaseModel):
     user_id: int
     creation_date: datetime
-    updated_at: Optional[datetime]
     active: bool
     wallet_public_address: str
     wallet_type: WalletType

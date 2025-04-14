@@ -56,24 +56,18 @@ class User(Base):
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     creation_date = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     deleted = Column(Boolean, nullable=False, default=False)
     wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
     wallet_type_id = Column(Integer, ForeignKey("wallet_types.wallet_type_id", ondelete="SET NULL"), default=WalletTypeEnum.Lace.value)
     last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="SET NULL"), default=UserRole.User.value)
 
-    freelancer_order_milestones = relationship("Milestones",  foreign_keys=lambda: [Milestones.freelancer_id], back_populates="freelancers_orders")
-    client_order_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.client_id], back_populates="clients_orders")
-
-    freelancer_proposal_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.freelancer_id], back_populates="freelancers_proposals")
-    client_proposal_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.client_id], back_populates="clients_proposals")
-
-    freelancer_service_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.freelancer_id], back_populates="freelancers_services")
-    client_service_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.client_id], back_populates="clients_services")
-
-    freelancer_request_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.freelancer_id], back_populates="freelancers_requests")
-    client_request_milestones = relationship("Milestones", foreign_keys=lambda: [Milestones.client_id], back_populates="clients_requests")
+    # Milestones where this user is the freelancer
+    milestones_as_freelancer = relationship("Milestones", foreign_keys="[Milestones.freelancer_id]",
+                                            back_populates="freelancer")
+    # Milestones where this user is the client
+    milestones_as_client = relationship("Milestones", foreign_keys="[Milestones.client_id]", back_populates="client")
 
     client_transactions = relationship("Transaction", foreign_keys="[Transaction.client_id]", back_populates="client")
     freelancer_transactions = relationship("Transaction", foreign_keys="[Transaction.freelancer_id]", back_populates="freelancer")
@@ -148,7 +142,7 @@ class User(Base):
                     if hasattr(user, key):
                         setattr(user, key, value)
 
-            user.updated_at = datetime.now(timezone.utc)
+            user.edition_date = datetime.now(timezone.utc)
             await db.commit()
             await db.refresh(user)
             return True
@@ -250,8 +244,8 @@ class Skills(Base):
     skill_id = Column(Integer, primary_key=True, autoincrement=True)
     skill = Column(String, nullable=False, unique=True)
     deleted = Column(Boolean, nullable=False, default=False)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    creation_date = Column(TIMESTAMP, default=datetime.utcnow)
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     profiles: Mapped[List["Profiles"]] = relationship(
         secondary=profile_skills, back_populates="skills"
     )
@@ -414,8 +408,8 @@ class Profiles(Base):
     last_name = Column(VARCHAR(50), nullable=False)
     bio = Column(VARCHAR(1000), nullable=True)
     profile_picture_identifier = Column(VARCHAR(255), nullable=True)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    creation_date = Column(TIMESTAMP, default=datetime.utcnow)
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     ##MANY TO MANY
     skills: Mapped[List[Skills]] = relationship(
@@ -500,8 +494,8 @@ class Requests(Base):
     deleted = Column(Boolean, nullable=False, default=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
 
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    creation_date = Column(TIMESTAMP, default=datetime.utcnow)
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     request_status_id = Column(Integer, ForeignKey("request_status.request_status_id", ondelete="SET NULL"), default=RequestStatusEnum.DRAFT.value, nullable=True)
 
     # Relationships
@@ -625,8 +619,8 @@ class Services(Base):
     tags = Column(ARRAY(String), nullable=False)
     deleted = Column(Boolean, nullable=False, default=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    creation_date = Column(TIMESTAMP, default=datetime.utcnow)
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     service_status_id = Column(Integer, ForeignKey("service_status.service_status_id", ondelete="SET NULL"), default=ServiceStatusEnum.DRAFT.value,  nullable=True)
 
     # Relationships
@@ -750,26 +744,16 @@ class Milestones(Base):
     milestone_text = Column(Text, nullable=False)
     reward_amount = Column(Float, nullable=False)
     deleted = Column(Boolean, nullable=False, default=False)
-    created_at = Column(TIMESTAMP(timezone=True), default=datetime.now(timezone.utc))
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    creation_date = Column(TIMESTAMP(timezone=True), default=datetime.now(timezone.utc))
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     client_approved = Column(Boolean, nullable=False, default=False)
     freelancer_approved = Column(Boolean, nullable=False, default=False)
     milestone_status_id = Column(Integer, ForeignKey("milestone_status.milestone_status_id", ondelete="SET NULL"), nullable=True)
 
     # Relationships
     milestone_status = relationship("MilestoneStatus", back_populates="milestones")
-
-    freelancers_orders = relationship("User", foreign_keys=[client_id], back_populates="freelancer_order_milestones")
-    clients_orders = relationship("User", foreign_keys=[freelancer_id], back_populates="client_order_milestones")
-
-    freelancers_proposals = relationship("User", foreign_keys=[client_id], back_populates="freelancer_proposal_milestones")
-    clients_proposals = relationship("User", foreign_keys=[freelancer_id], back_populates="client_proposal_milestones")
-
-    freelancers_requests = relationship("User", foreign_keys=[client_id], back_populates="freelancer_request_milestones")
-    clients_requests = relationship("User", foreign_keys=[freelancer_id], back_populates="client_request_milestones")
-
-    freelancers_services = relationship("User", foreign_keys=[client_id], back_populates="freelancer_service_milestones")
-    clients_services = relationship("User", foreign_keys=[freelancer_id], back_populates="client_service_milestones")
+    freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="milestones_as_freelancer")
+    client = relationship("User", foreign_keys=[client_id], back_populates="milestones_as_client")
 
     requests = relationship("Requests", secondary=request_milestone_association, back_populates="milestones")
     services = relationship("Services", secondary=service_milestone_association, back_populates="milestones")
@@ -900,9 +884,9 @@ class Proposal(Base):
     request_id = Column(Integer, ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     proposal_status_id = Column(Integer, ForeignKey("proposal_status.proposal_status_id", ondelete="CASCADE"), default=ProposalStatusEnum.DRAFT.value, nullable=False)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    creation_date = Column(TIMESTAMP, default=datetime.utcnow)
     deleted = Column(Boolean, nullable=False, default=False)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     # Relationships
     status = relationship("ProposalStatus", back_populates="proposals")
@@ -1014,9 +998,9 @@ class Order(Base):
     order_id = Column(Integer, primary_key=True, autoincrement=True)
     service_id = Column(Integer, ForeignKey("services.service_id", ondelete="CASCADE"), nullable=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    creation_date = Column(TIMESTAMP, default=datetime.utcnow)
     deleted = Column(Boolean, nullable=False, default=False)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     order_status_id = Column(Integer, ForeignKey("order_status.order_status_id", ondelete="CASCADE"), default=OrderStatusEnum.DRAFT.value, nullable=False)
 
     # Relationships
@@ -1133,8 +1117,8 @@ class Transaction(Base):
     receiver_address = Column(Text, nullable=False)
     client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
-    created_at = Column(TIMESTAMP, default=datetime.now(timezone.utc))
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    creation_date = Column(TIMESTAMP, default=datetime.now(timezone.utc))
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     # Relationships
     milestone = relationship("Milestones", back_populates="transaction", uselist=False)
@@ -1209,8 +1193,8 @@ class Category(Base):
     category_name = Column(String(50), nullable=True, unique=True)
     category_description = Column(Text, nullable=True)
     deleted = Column(Boolean, nullable=False, default=False)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    creation_date = Column(TIMESTAMP, default=datetime.utcnow)
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     sub_categories = relationship("SubCategory", back_populates="category", cascade="all, delete-orphan")
 
@@ -1309,9 +1293,9 @@ class SubCategory(Base):
     sub_category_name = Column(String(50), nullable=False, unique=True)
     sub_category_description = Column(Text, nullable=True)
     category_id = Column(Integer, ForeignKey("categories.category_id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    creation_date = Column(TIMESTAMP, default=datetime.utcnow)
     deleted = Column(Boolean, nullable=False, default=False)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     category = relationship("Category", back_populates="sub_categories")
     services = relationship("Services", back_populates="sub_category", cascade="all, delete-orphan")
@@ -1418,8 +1402,8 @@ class Review(Base):
     rating = Column(DECIMAL(2, 1), nullable=False)  # Rating between 1.0 and 5.0
     comment = Column(Text, nullable=True)
     deleted = Column(Boolean, nullable=False, default=False)
-    created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+    creation_date = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
 
     # Relationships
     reviewee = relationship("User", foreign_keys=[reviewee_id], back_populates="received_reviews")
