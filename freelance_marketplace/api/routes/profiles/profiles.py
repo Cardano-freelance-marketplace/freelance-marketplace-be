@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from freelance_marketplace.api.routes.profiles.profilesLogic import ProfilesLogic
 from freelance_marketplace.db.sql.database import get_sql_db
 from freelance_marketplace.models.sql.request_model.ProfileRequests import ProfileRequest
+from freelance_marketplace.api.services.fileStorage import FileStorage 
 
 router = APIRouter()
 
@@ -36,3 +37,11 @@ async def delete_user_profile(
         db: AsyncSession = Depends(get_sql_db)
 ):
     return await ProfilesLogic.delete(db=db, user_id=user_id)
+
+@router.post("/user/profile/picture", tags=["profile"])
+async def upload_profile_picture(
+    user_id: int = Query(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_sql_db)
+):
+    return await ProfilesLogic.update_profile_picture(user_id=user_id, file=file, db=db)
