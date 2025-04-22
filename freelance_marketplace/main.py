@@ -30,7 +30,7 @@ from freelance_marketplace.api.routes.conversations.conversations import router 
 from freelance_marketplace.api.routes.users.users import router as users_router
 from freelance_marketplace.api.routes.hello import router as hello_router
 from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneStatus, WalletTypes, RequestStatus, \
-    ServiceStatus, ProposalStatus, OrderStatus, Category, SubCategory
+    ServiceStatus, ProposalStatus, OrderStatus, Category, SubCategory, Skills
 
 load_dotenv()
 origins = ['*', "http://localhost:4200"]
@@ -90,6 +90,7 @@ async def startup():
         await Role.seed_roles(session)
         await MilestoneStatus.seed_status(session)
         await WalletTypes.seed_types(session)
+        await Skills.seed_skills(session)
         await RequestStatus.seed_status(session)
         await ServiceStatus.seed_status(session)
         await ProposalStatus.seed_status(session)

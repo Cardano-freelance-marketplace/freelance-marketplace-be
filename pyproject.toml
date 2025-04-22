@@ -22,6 +22,8 @@ slowapi = "^0.1.9"
 boto3 = "^1.37.31"
 redis = "^5.2.1"
 pyjwt = "^2.10.1"
+openpyxl = "^3.1.5"
+pandas = "^2.2.3"
 
 [tool.poetry.dev-dependencies]
 # Add development dependencies here (if any, such as testing libraries)

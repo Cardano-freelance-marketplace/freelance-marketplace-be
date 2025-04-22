@@ -1,7 +1,11 @@
 from datetime import datetime, timezone
+from pathlib import Path
+
 from sqlalchemy import Boolean, ForeignKey, VARCHAR, Table, insert, TIMESTAMP, Float, ARRAY, \
     DECIMAL, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert as p_insert
+from freelance_marketplace.api.utils.file_manipulation import FileTransformer
 from freelance_marketplace.db.sql.database import Base
 from freelance_marketplace.models.enums.milestoneStatus import MilestoneStatus as MilestoneStatusEnum
 from freelance_marketplace.models.enums.userRole import UserRole
@@ -300,6 +304,17 @@ class Skills(Base):
         except Exception as e:
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
+    @classmethod
+    async def seed_skills(cls, session):
+        technology_skills_path = "api_file_utilities/technology_skills.xlsx"
+        knowledge_skills_path = "api_file_utilities/knowledge.xlsx"
+        technology_skills_content = await FileTransformer.get_file_content(technology_skills_path, columns=[2])
+        knowledge_skills_content = await FileTransformer.get_file_content(knowledge_skills_path, columns=[3])
+        all_unique_skills = list(set(technology_skills_content + knowledge_skills_content))
+        stmt = p_insert(Skills).values([{"skill": skill} for skill in all_unique_skills])
+        stmt = stmt.on_conflict_do_nothing(index_elements=["skill"])
+        await session.execute(stmt)
+        await session.commit()
 
 
 class Role(Base):
