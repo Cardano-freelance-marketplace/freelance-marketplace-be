@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Install system dependencies
+echo "Installing system dependencies..."
+sudo apt update
+sudo apt install -y jpegoptim
+
 # Check if Poetry is installed
 if ! command -v poetry &> /dev/null; then
     echo "Poetry is not installed. Please install it first: https://python-poetry.org/docs/#installation"
