@@ -1,6 +1,7 @@
 import subprocess
 from PIL import Image, UnidentifiedImageError
 from fastapi import UploadFile
+import uuid
 
 
 class FileManipulator:
@@ -10,13 +11,10 @@ class FileManipulator:
             cls,
             file: UploadFile
     ) -> str:
-        import uuid
-
         temp_path = f"/tmp/{uuid.uuid4()}_{file.filename}"
         with open(temp_path, "wb") as f:
             content = await file.read()
             f.write(content)
-        await cls.compress_image(temp_path)
         return temp_path
 
     @staticmethod
@@ -26,6 +24,9 @@ class FileManipulator:
                 img.verify()  # Verifies image integrity
             return True
         except (UnidentifiedImageError, OSError):
+            return False
+        except Exception as e:
+            print(e)
             return False
 
     @classmethod

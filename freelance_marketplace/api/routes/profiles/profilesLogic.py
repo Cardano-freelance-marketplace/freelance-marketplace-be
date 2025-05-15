@@ -101,8 +101,14 @@ class ProfilesLogic:
         file: UploadFile,
         user_id: int
     ):
+
         file_storage = FileStorage(bucket_name="profile_pictures")
         file_path = await FileManipulator.create_tmp_file(file=file)
+
+        if not FileManipulator.is_image(file_path=file_path):
+            raise HTTPException(status_code=400, detail=f"File must be an image")
+
+        await FileManipulator.compress_image(file_path=file_path)
         try:
             file_hash = file_storage.generate_file_hash(file_path=file_path)
             s3_key = f"profile_pictures/{file_hash}_{uuid.uuid4()}"
