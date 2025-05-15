@@ -1,13 +1,19 @@
-from fastapi import HTTPException
+import os
+import uuid
+
+from fastapi import HTTPException, UploadFile, File
 from sqlalchemy import update, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from freelance_marketplace.api.services.fileStorage import FileStorage
 from freelance_marketplace.api.services.redis import Redis
+from freelance_marketplace.api.utils.file_manipulation_utils import FileManipulator
 from freelance_marketplace.api.utils.sql_util import soft_delete
+from freelance_marketplace.core.config import settings
 from freelance_marketplace.models.sql.request_model.ProfileRequests import ProfileRequest
 from freelance_marketplace.models.sql.sql_tables import Profiles
-
+from io import BytesIO
 
 class ProfilesLogic:
 
@@ -68,6 +74,7 @@ class ProfilesLogic:
         except Exception as e:
             print(e)
             raise HTTPException(status_code=500, detail=f"{str(e)}")
+
     @staticmethod
     async def get_profile(
             db: AsyncSession,
@@ -87,3 +94,30 @@ class ProfilesLogic:
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
+
+    @staticmethod
+    async def update_profile_picture(
+        db: AsyncSession,
+        file: UploadFile,
+        user_id: int
+    ):
+        file_storage = FileStorage(bucket_name="profile_pictures")
+        file_path = await FileManipulator.create_tmp_file(file=file)
+        try:
+            file_hash = file_storage.generate_file_hash(file_path=file_path)
+            s3_key = f"profile_pictures/{file_hash}_{uuid.uuid4()}"
+
+            # Upload to S3
+            file_storage.upload_file(file_path, s3_key)
+        finally:
+            os.remove(file_path)
+
+        # Update profile in DB
+        await Profiles.edit(
+            db=db,
+            profile_id=user_id,
+            data={"profile_picture_identifier": s3_key}
+        )
+
+        presigned_url = file_storage.generate_presigned_url(s3_key)
+        return {"s3_key": s3_key, "url": presigned_url}

@@ -40,6 +40,7 @@ class AWS(BaseSettings):
     secret_access_key: str = "test"
     region_name: str = "us-east-1"
     endpoint_url: str = "http://localhost:4566"
+    bucket_name: str = "freelance-marketplace"
 
     class Config:
         env_prefix = "AWS_"

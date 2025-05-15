@@ -25,7 +25,11 @@ class FileStorage:
         if self.bucket_name not in [bucket["Name"] for bucket in existing_buckets["Buckets"]]:
             self.s3.create_bucket(Bucket=self.bucket_name)
 
-    def upload_file(self, file_path: str, s3_key: str):
+    def upload_file(
+            self,
+            file_path: str,
+            s3_key: str
+    ):
         if self.file_exists_in_s3(s3_key=s3_key):
             raise FileExistsError(f"File {s3_key} already exists")
 
