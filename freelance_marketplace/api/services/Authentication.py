@@ -8,7 +8,6 @@ import jwt
 from fastapi import Response, HTTPException
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
-from pycardano import Address, VerificationKey
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status

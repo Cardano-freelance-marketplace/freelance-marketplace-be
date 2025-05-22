@@ -1,22 +1,11 @@
 import hashlib
 import json
-from enum import Enum
-from typing import Any, Coroutine
-
+from typing import Any
 import redis.asyncio as redis
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from freelance_marketplace.core.config import settings
-from freelance_marketplace.models.sql.sql_tables import Category, SubCategory
 
-
-class RedisKeys(Enum):
-    Category = ("categories:all", Category)
-    SubCategory = ("subcategories:all", SubCategory)
-
-    def __init__(self, redis_key, model):
-        self.redis_key = redis_key
-        self.model = model
 
 class Redis:
     def __init__(self):

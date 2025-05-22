@@ -1,6 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
-
 from freelance_marketplace.core.config import settings
 from freelance_marketplace.models.no_sql.conversation import Conversation
 from freelance_marketplace.models.no_sql.notification import Notification

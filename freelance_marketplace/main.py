@@ -35,7 +35,6 @@ from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneSta
 load_dotenv()
 origins = ['*', "http://localhost:4200"]
 
-
 app = FastAPI(
     **settings.fastapi.model_dump()
 )
@@ -44,6 +43,7 @@ app = FastAPI(
 limiter = Limiter(key_func=get_remote_address, default_limits=["15/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Middleware
 app.add_middleware(
     CORSMiddleware,

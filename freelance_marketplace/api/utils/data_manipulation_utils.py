@@ -1,7 +1,6 @@
 from bson import ObjectId
 from fastapi import HTTPException
 
-
 def get_object_id(id: str):
     try:
         return ObjectId(id)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from fastapi.websockets import WebSocket
 from starlette.websockets import WebSocketDisconnect
 
