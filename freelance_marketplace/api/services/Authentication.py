@@ -10,6 +10,7 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 from pycardano import Address, VerificationKey
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 from starlette.requests import Request
 
@@ -125,9 +126,10 @@ class Authentication:
     @classmethod
     async def user_conditional_register(
             cls,
+            db: AsyncSession,
             login_request: LoginRequest,
     ):
-        user = await UsersLogic.get_user_by_wallet_address(login_request.wallet_address)
+        user = await UsersLogic.get_user_by_wallet_address(wallet_public_address=login_request.wallet_address, db=db)
         if not user:
             await cls.__create_user(
                 login_request=login_request

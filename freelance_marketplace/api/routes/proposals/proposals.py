@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from freelance_marketplace.api.routes.proposals.proposalsLogic import ProposalsLogic
 from freelance_marketplace.db.sql.database import get_sql_db
 from freelance_marketplace.models.sql.request_model.ProposalRequest import ProposalRequest

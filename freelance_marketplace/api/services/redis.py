@@ -6,7 +6,6 @@ from typing import Any, Coroutine
 import redis.asyncio as redis
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-
 from freelance_marketplace.core.config import settings
 from freelance_marketplace.models.sql.sql_tables import Category, SubCategory
 
