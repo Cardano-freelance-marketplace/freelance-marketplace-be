@@ -28,7 +28,7 @@ async def get_all(
         "deleted": deleted,
         "sub_category_id": sub_category_id
     }
-    return await RequestsLogic.get_sub_category_requests(db=db, query_params=query_params)
+    return await RequestsLogic.get_all(db=db, query_params=query_params)
 
 @router.patch("/request", tags=["requests"])
 async def update_request(
