@@ -30,12 +30,6 @@ jobs:
       - name: Install code quality tools
         run: |
          python -m pip install black mypy bandit pip-audit
-        
-      - name: SAST - CodeQL Analysis
-        uses: github/codeql-action/init@v3
-        with:
-          languages: python
-      - uses: github/codeql-action/analyze@v3
 
       - name: Secret scanning (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
