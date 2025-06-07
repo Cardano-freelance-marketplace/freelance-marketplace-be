@@ -1,0 +1,59 @@
+name: Security & Quality Checks
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  security-quality:
+    name: Security & Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies with Poetry
+        run: |
+          poetry install --no-interaction --no-root
+
+      - name: Install code quality tools
+        run: |
+         python -m pip install black mypy bandit pip-audit
+        
+      - name: SAST - CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+      - uses: github/codeql-action/analyze@v3
+
+      - name: Secret scanning (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dependency scan (pip-audit)
+        run: |
+          poetry run pip-audit
+
+      - name: Security scan with Bandit
+        run: |
+          poetry run bandit -r freelance_marketplace
+
+      - name: Check code formatting with Black
+        run: |
+          poetry run black --check freelance_marketplace tests
+
+      - name: Type check with mypy
+        run: |
+          poetry run mypy freelance_marketplace
