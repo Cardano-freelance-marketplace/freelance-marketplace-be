@@ -13,4 +13,4 @@ fi
 
 # Activate Poetry environment and start the FastAPI application
 echo "Starting FastAPI application in development mode..."
-poetry run uvicorn freelance_marketplace.main:app --reload --host 0.0.0.0 --port 8000 --log-level debug
+poetry run uvicorn freelance_marketplace.main:app --reload --host 0.0.0.0 --port 45001 --log-level debug

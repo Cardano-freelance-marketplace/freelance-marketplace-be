@@ -60,8 +60,8 @@ class User(Base):
     creation_date = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
     deleted = Column(Boolean, nullable=False, default=False)
-    wallet_public_address = Column(VARCHAR(100), unique=True, nullable=False)
-    wallet_type_id = Column(Integer, ForeignKey("wallet_types.wallet_type_id", ondelete="SET NULL"), default=WalletTypeEnum.Lace.value)
+    wallet_public_address = Column(VARCHAR(512), unique=True, nullable=False)
+    wallet_type_id = Column(Integer, ForeignKey("wallet_types.wallet_type_id", ondelete="SET NULL"), nullable=True)
     last_login = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.now(timezone.utc))
     role_id = Column(Integer, ForeignKey("roles.role_id", ondelete="SET NULL"), default=UserRole.User.value)
 

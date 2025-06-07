@@ -10,9 +10,14 @@ async def transform_response_middleware(request : Request, call_next):
     It calculates the processing time, formats the response, and attaches it to the state.
     This function ensures that the response is formatted consistently before being returned.
     """
+    if request.method == "OPTIONS":
+        response = await call_next(request)
+        return response
+
     start_time = time.time()
     if request.url.path in ["/docs", "/openapi.json", "/redoc"]:
         return await call_next(request)
+
 
     response = await call_next(request)
 

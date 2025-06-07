@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import secrets
 import string
@@ -7,11 +6,15 @@ from hashlib import sha256
 import jwt
 from fastapi import Response, HTTPException
 from nacl.exceptions import BadSignatureError
+import cbor2
 from nacl.signing import VerifyKey
+from nacl.exceptions import BadSignatureError
+from pycardano.cip import cip8
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from freelance_marketplace.api.routes.users.users_logic import UsersLogic
 from freelance_marketplace.api.services.redis import Redis
@@ -46,29 +49,44 @@ class Authentication:
             login_request: LoginRequest
     ):
         stored_nonce = await Redis.get_redis_data(match=f"nonce:{login_request.wallet_address}")
-        if login_request.nonce != stored_nonce:
+        if not stored_nonce:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Nonce not found",
+            )
+
+        if login_request.nonce != stored_nonce[0]:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect nonce",
             )
 
     @classmethod
-    async def verify_signature(
-            cls,
-            login_request: LoginRequest,
-    ):
+    async def verify_signature(cls, login_request: LoginRequest):
         try:
-            # Convert the public key
-            public_key_bytes = bytes.fromhex(login_request.public_key)
-            verify_key = VerifyKey(public_key_bytes)
+            signed_message = {
+                "signature": login_request.signature,
+                "key": login_request.public_key_hex,
+            }
 
-            # Decode signature from base64
-            signature_bytes = base64.b64decode(login_request.signature)
+            # This verifies signature and returns dict with 'verified' and 'message' keys
+            result = cip8.verify(signed_message=signed_message, attach_cose_key=True)
+            if result["message"] != login_request.nonce:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Payload mismatch",
+                )
 
-            # verify signature
-            verify_key.verify(login_request.signed_nonce.encode(), signature_bytes)
+            if not result["verified"]:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Signature verification failed",
+                )
+
+
             return True
-        except BadSignatureError:
+
+        except BadSignatureError as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect signature"
@@ -104,7 +122,11 @@ class Authentication:
             secure=True,
             samesite="Lax"
         )
-        return response
+        return JSONResponse(
+        content={"access_token": jwt_token},
+        status_code=200,
+        headers=response.headers  # ensure cookies are preserved
+    )
 
     @classmethod
     async def __hash_payload(
@@ -139,16 +161,24 @@ class Authentication:
             cls,
             login_request: LoginRequest
     ):
-        async with AsyncSessionLocal() as session:
-            result = session.execute(
-                select(WalletTypes)
-                .where(
-                    WalletTypes.wallet_type_name.lower() == login_request.wallet_type_name.lower()
-                )
+        try:
+            async with AsyncSessionLocal() as session:
+                if login_request.wallet_type_name:
+                    result = session.execute(
+                        select(WalletTypes)
+                        .where(
+                            WalletTypes.wallet_type_name.lower() == login_request.wallet_type_name.lower()
+                        )
+                    )
+                    wallet_type = result.scalar().first()
+                data = {
+                    "wallet_type_id": wallet_type.wallet_type_id if login_request.wallet_type_name else None,
+                    "wallet_public_address": login_request.wallet_address,
+                }
+                user_request = UserRequest(**data)
+                await UsersLogic.create(db=session, user=user_request)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to register user"
             )
-            wallet_type = result.scalar().first()
-            user_request = UserRequest(
-                wallet_type_id=wallet_type.wallet_type_id,
-                wallet_public_address=login_request.wallet_address
-            )
-            await UsersLogic.create(db=session, user=user_request)

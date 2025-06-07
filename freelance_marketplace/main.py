@@ -21,6 +21,7 @@ from freelance_marketplace.api.routes.notifications.notifications import router 
 from freelance_marketplace.api.routes.categories.categories import router as categories_router
 from freelance_marketplace.api.routes.sub_categories.subCategories import router as sub_categories_router
 from freelance_marketplace.api.routes.services.services import router as services_router
+from freelance_marketplace.api.routes.auth.auth import router as auth_router
 from freelance_marketplace.api.routes.requests.requests import router as requests_router
 from freelance_marketplace.api.routes.milestones.milestones import router as milestones_router
 from freelance_marketplace.api.routes.orders.orders import router as orders_router
@@ -33,7 +34,7 @@ from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneSta
     ServiceStatus, ProposalStatus, OrderStatus, Category, SubCategory, Skills
 
 load_dotenv()
-origins = ['*', "http://localhost:4200"]
+origins = ["http://localhost:45002"]
 
 app = FastAPI(
     **settings.fastapi.model_dump()
@@ -55,7 +56,7 @@ app.add_middleware(
 
 # Apply Middlewares
 app.add_middleware(SlowAPIMiddleware)
-app.middleware("http")(auth_middleware)
+# app.middleware("http")(auth_middleware)
 app.middleware("http")(transform_response_middleware)
 
 app.include_router(hello_router, prefix="/api/v1")
@@ -74,6 +75,7 @@ app.include_router(orders_router, prefix="/api/v1")
 app.include_router(proposals_router, prefix="/api/v1")
 app.include_router(transactions_router, prefix="/api/v1")
 app.include_router(conversations_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 
 
 @app.on_event("startup")

@@ -17,7 +17,8 @@ async def login(
     await Authentication.verify_nonce(login_request=login_request)
     await Authentication.verify_signature(login_request=login_request)
     await Authentication.user_conditional_register(login_request=login_request, db=db)
-    return await Authentication.create_access_token(login_request=login_request, response=response)
+    access_token = await Authentication.create_access_token(login_request=login_request, response=response)
+    return access_token
 
 
 @router.post("/logout", tags=["auth"])

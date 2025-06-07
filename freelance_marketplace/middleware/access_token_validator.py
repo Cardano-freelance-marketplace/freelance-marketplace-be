@@ -23,7 +23,8 @@ async def auth_middleware(request: Request, call_next):
     method = request.method.upper()
     # if (path, method) in PUBLIC_ENDPOINTS:
     if True:
-        return await call_next(request)
+        response = await call_next(request)
+        return response
 
     token = request.cookies.get("access_token")
     if not token:
