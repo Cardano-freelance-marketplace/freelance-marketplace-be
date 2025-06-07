@@ -42,8 +42,8 @@ RUN poetry install --no-root
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE 45001
 
 
 # Start the app
-CMD ["poetry", "run", "uvicorn", "freelance_marketplace.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]
+CMD ["poetry", "run", "uvicorn", "freelance_marketplace.main:app", "--reload", "--host", "0.0.0.0", "--port", "45001", "--log-level", "debug"]

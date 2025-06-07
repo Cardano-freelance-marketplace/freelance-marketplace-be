@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
-from pathlib import Path
-
 from sqlalchemy import Boolean, ForeignKey, VARCHAR, Table, insert, TIMESTAMP, Float, ARRAY, \
-    DECIMAL, select
+    DECIMAL, select, BigInteger, Enum
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.postgresql import insert as p_insert
 from freelance_marketplace.api.utils.file_manipulation import FileTransformer
@@ -746,15 +744,69 @@ class ServiceStatus(Base):
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+class Script(Base):
+    __tablename__ = "scripts"
+
+    script_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)  # e.g., 'milestone_script'
+    address = Column(String(255), nullable=False, unique=True)  # script address
+    version = Column(String(50), nullable=True)
+    creation_date = Column(TIMESTAMP(timezone=True), default=datetime.now(timezone.utc))
+    edition_date = Column(TIMESTAMP(timezone=True), nullable=True, onupdate=datetime.now(timezone.utc))
+
+    # Relationships
+    utxos = relationship("Utxo", back_populates="script")
+
+class PendingTransaction(Base):
+    __tablename__ = "pending_transactions"
+
+    pending_transaction_id = Column(Integer, primary_key=True, autoincrement=True)
+
+    tx_hash = Column(String(64), nullable=False, unique=True)
+    status = Column(Enum("pending", "confirmed", "failed", "timeout", name="pending_tx_status_enum"), default="pending", nullable=False)
+    action_type = Column(Enum("milestone_creation", "milestone_approval", "milestone_payment", name="pending_tx_context_enum"), nullable=False)
+    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id", ondelete="CASCADE"), nullable=False)
+
+    submission_date = Column(TIMESTAMP(timezone=True), default=datetime.now(timezone.utc))
+    last_poll_date = Column(TIMESTAMP(timezone=True), nullable=True)
+    confirmation_date = Column(TIMESTAMP(timezone=True), nullable=True)
+    failure_reason = Column(Text, nullable=True)
+
+    # Optional convenience fields
+    milestone = relationship("Milestones", back_populates="pending_transactions")
+    script_id = Column(Integer, ForeignKey("scripts.script_id", ondelete="SET NULL"), nullable=True)
+    script = relationship("Script")
+
+
+class Utxo(Base):
+    __tablename__ = "utxos"
+
+    utxo_id = Column(Integer, primary_key=True, autoincrement=True)
+    script_id = Column(Integer, ForeignKey("scripts.script_id", ondelete="CASCADE"), nullable=False)
+
+    tx_hash = Column(String(64), nullable=False)
+    tx_index = Column(Integer, nullable=False)
+    datum = Column(Text, nullable=True)  # raw datum JSON (optional)
+    value_lovelace = Column(BigInteger, nullable=False, default=0)
+    token_unit = Column(String(255), nullable=True)  # optional if token involved
+    token_quantity = Column(BigInteger, nullable=True)
+
+    creation_date = Column(TIMESTAMP(timezone=True), default=datetime.now(timezone.utc))
+    spent = Column(Boolean, nullable=False, default=False)
+    spent_date = Column(TIMESTAMP(timezone=True), nullable=True)
+    milestone_id = Column(Integer, ForeignKey("milestones.milestone_id", ondelete="SET NULL"), nullable=True)
+
+    # Relationships
+    milestone = relationship("Milestones", back_populates="utxos")
+    script = relationship("Script", back_populates="utxos")
+
 
 class Milestones(Base):
     __tablename__ = "milestones"
 
     milestone_id = Column(Integer, primary_key=True, autoincrement=True)
-    client_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
-    freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=False)
-
-    milestone_tx_hash = Column(String(4096), nullable=False)
+    client_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    freelancer_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     milestone_text = Column(Text, nullable=False)
     reward_amount = Column(Float, nullable=False)
     deleted = Column(Boolean, nullable=False, default=False)
@@ -769,6 +821,8 @@ class Milestones(Base):
     freelancer = relationship("User", foreign_keys=[freelancer_id], back_populates="milestones_as_freelancer")
     client = relationship("User", foreign_keys=[client_id], back_populates="milestones_as_client")
 
+    pending_transactions = relationship("PendingTransaction", back_populates="milestone")
+    utxos = relationship("Utxo", back_populates="milestone")
     requests = relationship("Requests", secondary=request_milestone_association, back_populates="milestones")
     services = relationship("Services", secondary=service_milestone_association, back_populates="milestones")
     orders = relationship("Order", secondary=order_milestone_association, back_populates="milestones")
