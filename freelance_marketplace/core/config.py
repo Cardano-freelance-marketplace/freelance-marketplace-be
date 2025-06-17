@@ -61,6 +61,15 @@ class FastAPISettings(BaseSettings):
         env_file = ".env"
         extra = "ignore"  # Ignore extra fields
 
+class Blockchain(BaseSettings):
+    ogmios_url: str = ""
+    network: str = "preprod"
+
+    class Config:
+        env_prefix = "Blockchain_"
+        env_file = ".env"
+        extra = "ignore"  # Ignore extra fields
+
 class Settings(BaseSettings):
     fastapi: FastAPISettings = FastAPISettings()
     test: TestingSettings = TestingSettings()
@@ -68,6 +77,7 @@ class Settings(BaseSettings):
     sql: SQL = SQL()
     aws: AWS = AWS()
     redis: Redis = Redis()
+    blockchain: Blockchain = Blockchain()
 
     class Config:
         env_nested_delimiter = "__"
