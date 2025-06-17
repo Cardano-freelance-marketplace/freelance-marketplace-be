@@ -4,45 +4,73 @@ from pycardano import *
 
 from freelance_marketplace.api.services.ogmios import Ogmios
 from freelance_marketplace.core.config import settings
+from freelance_marketplace.models.datums.default_datum import Milestone, DatumModel, MilestoneModel, \
+    JobAgreement
 
 
-class Transaction():
+class Transaction:
     def __init__(self):
         self.network = settings.blockchain.network
         self.script = self.__load_script()
-
 
     async def __load_script(self) -> PlutusV2Script:
         with open("scripts/job_agreement.plutus.json") as f:
             data = json.load(f)
         return PlutusV2Script(data["compiledCode"])
 
-    async def __get_script_address(self) -> Address:
+    async def get_script_address(self) -> Address:
         plutus_script: PlutusV2Script = await self.__load_script()
         script_hash: ScriptHash = plutus_script_hash(plutus_script)
         script_address = Address(payment_part=script_hash, network=settings.blockchain.network)
         return script_address
 
-    async def build_unsined_tx(self,
-                         action: str = "ApproveMilestone",
-                         wallet_address: Optional[str] = None
-     ) -> Transaction:
-        script_utxo = self.__get_script_address() ## STILL NEED TO GRAB THE INDEX OF THE UTXO
 
-        # return await self.__tx_builder(
-        #     signer_address=Address.from_primitive(wallet_address), # User's wallet address
-        #     script_utxo=TransactionInput.from_primitive(["txhash", 0]), # UTXO sitting at validator ["f93a123456789abcdef...", 0]
-        #     script_output=TransactionOutput(
-        #         Address.from_primitive("addr_test1..."),
-        #         Value(2_000_000),
-        #         datum_hash=None  # Only needed if datum is off-chain
-        #     ), # GRAB THIS FROM OGMIOS, QUERY THE UTXO AND GET THAT DATUM CONTENT AND PASTE IT HERE
-        #     datum=ConstrPlutusData(0, []),  # Replace with your actual datum
-        #     redeemer=ConstrPlutusData(1, []),  # Replace with your actual redeemer
-        #     collateral_utxos=[
-        #         TransactionInput.from_primitive(["collateral_txhash", 0])
-        #     ]
-        # )
+
+    async def build_unsigned_tx(
+            self,
+            requester_address: str,
+            client_address: str,
+            freelancer_address: str,
+            milestone: dict,
+            milestone_id: int
+
+        ) -> Transaction:
+
+        script_address = await self.get_script_address() ## STILL NEED TO GRAB THE INDEX OF THE UTXO
+        utxo = await Ogmios().get_utxo_by_milestone(milestone_id=milestone_id, script_address=script_address)
+        datum_model = DatumModel(
+            freelancer=freelancer_address,
+            client=client_address,
+            milestone=MilestoneModel(**milestone)
+        )
+
+        datum: JobAgreement = JobAgreement(
+            freelancer=bytes.fromhex(datum_model.freelancer),
+            client=bytes.fromhex(datum_model.client),
+            milestone=Milestone(
+                reward=datum_model.milestone.reward,
+                approved_by_freelancer=datum_model.milestone.approved_by_freelancer,
+                approved_by_client=datum_model.milestone.approved_by_client,
+                paid=datum_model.milestone.paid
+            )
+        )
+
+        script_output = TransactionOutput(
+            address=script_address,
+            amount=Value(2_000_000),
+            datum=datum
+        )
+        ## TODO build the redeemer and find a way to grab the collateral utxos aswell
+        return await self.__tx_builder(
+            signer_address=Address.from_primitive(requester_address), # User's wallet address
+            script_utxo=TransactionInput.from_primitive([utxo["tx_hash"], utxo["output_index"]]), # UTXO sitting at validator ["f93a123456789abcdef...", 0]
+            script_output=script_output,
+            datum=datum,  # Replace with your actual datum
+            redeemer=ConstrPlutusData(1, []),  # Replace with your actual redeemer
+            collateral_utxos=[
+                TransactionInput.from_primitive(["collateral_txhash", 0])
+            ]
+        )
 
     async def __tx_builder(
         self,
