@@ -11,7 +11,6 @@ from freelance_marketplace.models.datums.default_datum import Milestone, DatumMo
 from freelance_marketplace.models.redeemers.default_redeemer import DefaultRedeemer, ApproveMilestone, Refund, \
     RedeemMilestone
 
-
 class Transaction:
     def __init__(self):
         self.network = settings.blockchain.network

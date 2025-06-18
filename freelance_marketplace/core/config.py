@@ -64,6 +64,7 @@ class FastAPISettings(BaseSettings):
 class Blockchain(BaseSettings):
     ogmios_url: str = ""
     network: str = "preprod"
+    submit_api_url: str = ""
 
     class Config:
         env_prefix = "Blockchain_"

@@ -1,11 +1,9 @@
 from typing import Optional
-
-from pycardano import OgmiosChainContext, Address, TransactionInput, UTxO
+from pycardano import OgmiosChainContext, Address, UTxO, Transaction, TransactionBuilder
 from freelance_marketplace.core.config import settings
 
 
 class Ogmios:
-
     def __init__(self):
         self.context = OgmiosChainContext(settings.blockchain.ogmios_url)
 
@@ -39,3 +37,22 @@ class Ogmios:
             if has_only_ada and lovelace_amount >= 5_000_000:  # at least 5 ADA
                 return utxo
         return None
+
+    async def is_valid_transaction(self, tx: Transaction) -> bool:
+        try:
+            self.context.evaluate_tx(tx)
+            return True
+        except Exception as e:
+            print(f"Transaction validation failed: {e}")
+            return False
+
+    async def submit_transaction(self, tx: Transaction) -> str:
+        pass
+        ## TODO use cardano-submit-api to submit tx
+        # try:
+        #     tx_id = self.context.submit_tx(tx)
+        #     return str(tx_id)
+        # except Exception as e:
+        #     print(f"Transaction submission failed: {e}")
+        #     raise
+        #
