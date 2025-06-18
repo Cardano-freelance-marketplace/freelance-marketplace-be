@@ -1,19 +1,26 @@
 from pycardano import PlutusData
+from dataclasses import dataclass
 
-class Redeemer(PlutusData):
-    CONSTR_ID = 0  # Constructor index for Redeemer type in your contract
+@dataclass
+class ApproveMilestone(PlutusData):
+    CONSTR_ID = 0
+
+@dataclass
+class RedeemMilestone(PlutusData):
+    CONSTR_ID = 1
+
+@dataclass
+class Refund(PlutusData):
+    CONSTR_ID = 2
+
+# Union type for Action
+Action = ApproveMilestone | RedeemMilestone | Refund
+
+
+@dataclass
+class DefaultRedeemer(PlutusData):
+    CONSTR_ID = 0
     signer: bytes
-    action: ConstrPlutusData  # nested Action enum
+    action: Action
     is_client: bool
     is_freelancer: bool
-
-class Action(PlutusData):
-    # Map your Action constructors indexes, e.g.,
-    APPROVE_MILESTONE = 0
-    REDEEM_MILESTONE = 1
-    REFUND = 2
-
-    CONSTR_ID: int
-
-    def __init__(self, constr_id):
-        self.CONSTR_ID = constr_id

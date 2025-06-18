@@ -1,43 +1,149 @@
 import json
 from typing import List, Optional
+
+from fastapi import HTTPException
 from pycardano import *
 
 from freelance_marketplace.api.services.ogmios import Ogmios
 from freelance_marketplace.core.config import settings
 from freelance_marketplace.models.datums.default_datum import Milestone, DatumModel, MilestoneModel, \
     JobAgreement
+from freelance_marketplace.models.redeemers.default_redeemer import DefaultRedeemer, ApproveMilestone, Refund, \
+    RedeemMilestone
 
 
 class Transaction:
     def __init__(self):
         self.network = settings.blockchain.network
         self.script = self.__load_script()
+        self.context = Ogmios.get_context()
 
-    async def __load_script(self) -> PlutusV2Script:
-        with open("scripts/job_agreement.plutus.json") as f:
-            data = json.load(f)
-        return PlutusV2Script(data["compiledCode"])
+    async def __load_script(self) -> bytes:
+        with open("scripts/job_agreement.plutus.json", "rb") as f:
+            data = f.read()
+        return data
 
-    async def get_script_address(self) -> Address:
-        plutus_script: PlutusV2Script = await self.__load_script()
+    async def __get_script_address(self) -> Address:
+        plutus_script: PlutusV2Script = PlutusV2Script(await self.__load_script())
         script_hash: ScriptHash = plutus_script_hash(plutus_script)
         script_address = Address(payment_part=script_hash, network=settings.blockchain.network)
         return script_address
 
-
+    async def __get_plutus_script(self) -> PlutusV2Script:
+        script_bytes: bytes = await self.__load_script()
+        return PlutusV2Script(script_bytes)
 
     async def build_unsigned_tx(
             self,
-            requester_address: str,
-            client_address: str,
-            freelancer_address: str,
+            signer_address: Address,
+            client_address: Address,
+            freelancer_address: Address,
             milestone: dict,
-            milestone_id: int
-
+            milestone_id: int,
+            action: str = "create_milestone"
         ) -> Transaction:
 
-        script_address = await self.get_script_address() ## STILL NEED TO GRAB THE INDEX OF THE UTXO
-        utxo = await Ogmios().get_utxo_by_milestone(milestone_id=milestone_id, script_address=script_address)
+        script_address = await self.__get_script_address()
+        utxo: UTxO = await Ogmios().get_utxo_by_milestone(milestone_id=milestone_id, script_address=script_address)
+        if not utxo:
+            raise HTTPException(status_code=404, detail="UTXO Milestone not found")
+
+        datum: JobAgreement = await self.__build_datum(
+            client_address=client_address,
+            freelancer_address=freelancer_address,
+            milestone=milestone,
+        )
+        script_outputs: List[TransactionOutput] = await self.__build_script_outputs(
+            utxo=utxo,
+            action=action,
+            datum=datum,
+            script_address=script_address,
+            signer=signer_address
+        )
+
+
+        collateral_utxo: UTxO = await Ogmios().get_collateral_utxo(wallet_address=signer_address)
+        if not collateral_utxo:
+            raise HTTPException(status_code=404, detail="UTXO Collateral not found")
+
+        redeemer_data = {
+            "signer": signer_address.payment_part.payload,
+            "is_client": True if signer_address == client_address else False,
+            "is_freelancer": True if signer_address == freelancer_address else False
+        }
+        redeemer: PlutusData | None = await self.__build_redeemer(action=action, data=redeemer_data)
+
+        return await self.__tx_builder(
+            signer_address=signer_address,
+            script_utxo=utxo,
+            script_outputs=script_outputs,
+            datum=datum,
+            redeemer=redeemer,
+            collateral_utxos=[
+                collateral_utxo
+            ]
+        )
+
+    async def __build_script_outputs(
+            self,
+            utxo: Optional[UTxO],
+            action: str,
+            datum: Optional[JobAgreement],
+            script_address: Address,
+            signer: Address
+    ) -> List[TransactionOutput]:
+        outputs = []
+
+        if action.lower() == "create_milestone":
+            output = TransactionOutput(
+                address=script_address,
+                amount=Value(datum.milestone.reward),
+                datum=datum
+            )
+            min_ada = min_lovelace(await self.context, output, has_datum=True)
+            output.amount = Value(min_ada)
+            outputs.append(output)
+
+        elif action.lower() == "approve_milestone":
+            # Create updated JobAgreement with approval toggled
+            signer_bytes = signer.payment_part.payload
+            if signer_bytes == datum.client:
+                datum.milestone.approved_by_client = not datum.milestone.approved_by_client
+
+            if signer_bytes == datum.freelancer:
+                datum.milestone.approved_by_freelancer = not datum.milestone.approved_by_freelancer
+
+            output = TransactionOutput(
+                address=script_address,
+                amount=utxo.output.amount,  # Keep same value
+                datum=datum
+            )
+            outputs.append(output)
+
+        elif action.lower() == "redeem_milestone":
+            # Payout to freelancer
+            reward = datum.milestone.reward
+            outputs.append(TransactionOutput(
+                address=Address.from_primitive(datum.freelancer),
+                amount=Value(reward)
+            ))
+
+        elif action.lower() == "refund_milestone":
+            # Refund to client
+            refund = datum.milestone.reward
+            outputs.append(TransactionOutput(
+                address=Address.from_primitive(datum.client),
+                amount=Value(refund)
+            ))
+
+        return outputs
+
+    async def __build_datum(
+            self,
+            client_address: Address,
+            freelancer_address: Address,
+            milestone: dict
+    ) -> JobAgreement:
         datum_model = DatumModel(
             freelancer=freelancer_address,
             client=client_address,
@@ -45,8 +151,8 @@ class Transaction:
         )
 
         datum: JobAgreement = JobAgreement(
-            freelancer=bytes.fromhex(datum_model.freelancer),
-            client=bytes.fromhex(datum_model.client),
+            freelancer=datum_model.freelancer.payment_part.payload,
+            client=datum_model.client.payment_part.payload,
             milestone=Milestone(
                 reward=datum_model.milestone.reward,
                 approved_by_freelancer=datum_model.milestone.approved_by_freelancer,
@@ -54,58 +160,74 @@ class Transaction:
                 paid=datum_model.milestone.paid
             )
         )
+        return datum
 
-        script_output = TransactionOutput(
-            address=script_address,
-            amount=Value(2_000_000),
-            datum=datum
-        )
-        ## TODO build the redeemer and find a way to grab the collateral utxos aswell
-        return await self.__tx_builder(
-            signer_address=Address.from_primitive(requester_address), # User's wallet address
-            script_utxo=TransactionInput.from_primitive([utxo["tx_hash"], utxo["output_index"]]), # UTXO sitting at validator ["f93a123456789abcdef...", 0]
-            script_output=script_output,
-            datum=datum,  # Replace with your actual datum
-            redeemer=ConstrPlutusData(1, []),  # Replace with your actual redeemer
-            collateral_utxos=[
-                TransactionInput.from_primitive(["collateral_txhash", 0])
-            ]
-        )
+    async def __build_redeemer(
+            self,
+            action: str,
+            data: dict
+    ) -> PlutusData:
+        redeemer = None
+        if action == "create_milestone":
+            redeemer = None
+        elif action == "approve_milestone":
+            redeemer = DefaultRedeemer(
+                action=ApproveMilestone(),
+                **data
+            )
+        elif action == "refund_milestone":
+            redeemer = DefaultRedeemer(
+                action=Refund(),
+                **data
+            )
+        elif action == "redeem_milestone":
+            redeemer = DefaultRedeemer(
+                action=RedeemMilestone(),
+                **data
+            )
+        return redeemer
 
     async def __tx_builder(
-        self,
-        signer_address: Address,
-        script_utxo: TransactionInput,
-        script_output: TransactionOutput,
-        datum: PlutusData,
-        redeemer: PlutusData,
-        collateral_utxos: List[TransactionInput],
-        extra_outputs: Optional[List[TransactionOutput]] = None
+            self,
+            signer_address: Address,
+            script_utxo: Optional[UTxO],
+            script_outputs: List[TransactionOutput],
+            datum: PlutusData,
+            redeemer: Optional[PlutusData],
+            collateral_utxos: List[UTxO],
+            extra_outputs: Optional[List[TransactionOutput]] = None
     ) -> Transaction:
-        builder = TransactionBuilder(await Ogmios.get_context())
+        context = await Ogmios.get_context()
+        builder = TransactionBuilder(context)
 
-        # Add script input (validator UTXO)
-        builder.add_script_input(
-            script_utxo,
-            script_output,
-            self.script,
-            datum=datum,
-            redeemer=redeemer
-        )
+        # Add required signer (for script signature check)
+        builder.required_signers = [
+            VerificationKeyHash.from_primitive(signer_address.payment_part.payload)
+        ]
 
-        # Add collateral
-        for utxo in collateral_utxos:
-            builder.add_collateral(utxo)
+        # If spending from script
+        if script_utxo and redeemer:
+            # Add the script input with datum and redeemer
+            builder.add_script_input(
+                utxo=script_utxo,
+                script=await self.__get_plutus_script(),
+                datum=datum,
+                redeemer=redeemer
+            )
 
-        # Optional extra outputs (like paying back to the validator, or paying rewards)
+            # Collateral
+            builder.collaterals.extend(collateral_utxos)
+
+        # Add script output (new state)
+        for output in script_outputs:
+            builder.add_output(output)
+
+        # Add extra outputs (e.g. payment to freelancer)
         if extra_outputs:
-            for output in extra_outputs:
-                builder.add_output(output)
+            for out in extra_outputs:
+                builder.add_output(out)
 
-        # Add change output to sender
-        builder.add_change_address(signer_address)
+        builder.change_address = signer_address
 
-        # Build the unsigned transaction
         tx = builder.build()
-
         return tx

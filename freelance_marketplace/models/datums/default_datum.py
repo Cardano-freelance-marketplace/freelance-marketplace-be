@@ -1,4 +1,4 @@
-from pycardano import PlutusData
+from pycardano import PlutusData, Address
 from dataclasses import dataclass
 from pydantic import BaseModel
 
@@ -25,6 +25,6 @@ class MilestoneModel(BaseModel):
     paid: bool
 
 class DatumModel(BaseModel):
-    freelancer: str  # hex string
-    client: str      # hex string
+    freelancer: Address
+    client: Address
     milestone: MilestoneModel
