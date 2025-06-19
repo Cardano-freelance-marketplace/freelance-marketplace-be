@@ -6,9 +6,6 @@ from hashlib import sha256
 import jwt
 from fastapi import Response, HTTPException
 from nacl.exceptions import BadSignatureError
-import cbor2
-from nacl.signing import VerifyKey
-from nacl.exceptions import BadSignatureError
 from pycardano.cip import cip8
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

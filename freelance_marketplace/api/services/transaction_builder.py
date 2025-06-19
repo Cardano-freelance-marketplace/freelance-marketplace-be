@@ -21,7 +21,7 @@ class TransactionBuilder:
         self.context = Ogmios.get_context()
 
     async def __load_script(self) -> bytes:
-        with open("scripts/job_agreement.plutus.json", "rb") as f:
+        with open("smart_contracts/job_agreement_plutus.json", "rb") as f:
             data = f.read()
         return data
 

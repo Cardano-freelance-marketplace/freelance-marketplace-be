@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, Response, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
-from freelance_marketplace.api.services.Authentication import Authentication
+from freelance_marketplace.api.services.authentication import Authentication
 from freelance_marketplace.api.services.redis import Redis
 from freelance_marketplace.db.sql.database import get_sql_db
 from freelance_marketplace.models.requests.loginRequest import LoginRequest
