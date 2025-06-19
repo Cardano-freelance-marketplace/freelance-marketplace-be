@@ -1,7 +1,11 @@
-from typing import List, Optional
+import base64
+import json
+import subprocess
+from typing import List, Optional, Any, Coroutine
 
 from fastapi import HTTPException
 from pycardano import *
+from pycardano import TransactionBody
 
 from freelance_marketplace.api.services.ogmios import Ogmios
 from freelance_marketplace.core.config import settings
@@ -10,7 +14,7 @@ from freelance_marketplace.models.datums.default_datum import Milestone, DatumMo
 from freelance_marketplace.models.redeemers.default_redeemer import DefaultRedeemer, ApproveMilestone, Refund, \
     RedeemMilestone
 
-class Transaction:
+class TransactionBuilder:
     def __init__(self):
         self.network = settings.blockchain.network
         self.script = self.__load_script()
@@ -39,7 +43,7 @@ class Transaction:
             milestone: dict,
             milestone_id: int,
             action: str = "create_milestone"
-        ) -> Transaction:
+        ) -> TransactionBody:
 
         script_address = await self.get_script_address()
         utxo: UTxO = await Ogmios().get_utxo_by_milestone(milestone_id=milestone_id, script_address=script_address)
@@ -195,7 +199,7 @@ class Transaction:
             redeemer: Optional[PlutusData],
             collateral_utxos: List[UTxO],
             extra_outputs: Optional[List[TransactionOutput]] = None
-    ) -> Transaction:
+    ) -> TransactionBody:
         context = await Ogmios.get_context()
         builder = TransactionBuilder(context)
 
@@ -231,3 +235,37 @@ class Transaction:
 
         tx = builder.build()
         return tx
+
+    async def sign_tx(self, tx_body: TransactionBody) -> Transaction:
+        encrypted_skey_base64 = settings.wallet_keys.skey_encrypted
+        encrypted_skey = base64.b64decode(encrypted_skey_base64)
+
+        result = subprocess.run(
+            ["gpg", "--decrypt"],
+            input=encrypted_skey,
+            capture_output=True,
+            check=True
+        )
+
+        skey_json = json.loads(result.stdout)
+        signing_key = PaymentSigningKey.from_json(skey_json)
+
+        vkey_bytes = base64.b64decode(settings.wallet_keys.vkey)
+        vkey_json = json.loads(vkey_bytes)
+        vkey = PaymentVerificationKey.from_json(vkey_json)
+
+        tx_hash = tx_body.hash()
+        signature = signing_key.sign(tx_hash)
+
+        vkey_witness = VerificationKeyWitness(
+            signature=signature,
+            vkey=vkey
+        )
+
+        witness_set = TransactionWitnessSet(vkey_witnesses=[vkey_witness])
+        signed_tx = Transaction(
+            transaction_body=tx_body,
+            transaction_witness_set=witness_set
+        )
+
+        return signed_tx

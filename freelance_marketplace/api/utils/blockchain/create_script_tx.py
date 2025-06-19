@@ -1,7 +1,5 @@
 from pycardano import Address
-
 from freelance_marketplace.api.services.transactions import Transaction
-
 
 async def generate_unsigned_tx():
     tx = Transaction()

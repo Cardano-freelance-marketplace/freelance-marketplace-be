@@ -45,14 +45,3 @@ class Ogmios:
         except Exception as e:
             print(f"Transaction validation failed: {e}")
             return False
-
-    async def submit_transaction(self, tx: Transaction) -> str:
-        pass
-        ## TODO use cardano-submit-api to submit tx
-        # try:
-        #     tx_id = self.context.submit_tx(tx)
-        #     return str(tx_id)
-        # except Exception as e:
-        #     print(f"Transaction submission failed: {e}")
-        #     raise
-        #
