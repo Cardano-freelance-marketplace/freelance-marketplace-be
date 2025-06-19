@@ -1,12 +1,16 @@
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+load_dotenv()
 
-class TestingSettings(BaseSettings):
-    addr: str = ""
+class Services(BaseSettings):
+    frontend_url: str = ""
+    authorization_url: str = ""
+    backend_url: str = ""
 
     class Config:
-        env_prefix = "TEST_"
         env_file = ".env"
-        extra = "ignore"  # Ignore extra fields
+        env_prefix = "SERVICES_"
+        extra = "ignore"
 
 class Mongo(BaseSettings):
     connection_string: str = ""
@@ -36,8 +40,8 @@ class SQL(BaseSettings):
         extra = "ignore"  # Ignore extra fields
 
 class AWS(BaseSettings):
-    access_key_id: str = "test"
-    secret_access_key: str = "test"
+    access_key_id: str = ""
+    secret_access_key: str = ""
     region_name: str = "us-east-1"
     endpoint_url: str = "http://localhost:4566"
     bucket_name: str = "freelance-marketplace"
@@ -61,32 +65,56 @@ class FastAPISettings(BaseSettings):
         env_file = ".env"
         extra = "ignore"  # Ignore extra fields
 
-class Blockchain(BaseSettings):
-    ogmios_url: str = ""
-    network: str = "preprod"
-    submit_api_url: str = ""
+class CardanoSubmitAPI(BaseSettings):
+    url: str = ""
 
     class Config:
-        env_prefix = "Blockchain_"
+        env_prefix = "SUBMIT_API_"
         env_file = ".env"
         extra = "ignore"  # Ignore extra fields
 
+class Ogmios(BaseSettings):
+    url: str = ""
+
+    class Config:
+        env_prefix = "OGMIOS_"
+        env_file = ".env"
+        extra = "ignore"
+
+class CardanoNode(BaseSettings):
+    socket_path: str = ""
+    class Config:
+        env_prefix = "CARDANO_NODE_"
+
+class WalletKeys(BaseSettings):
+    skey_encrypted: str = ""
+    vkey: str = ""
+
+    class Config:
+        env_prefix = "KEY_"
+        env_file = ".env"
+        extra = "ignore"
+
 class Settings(BaseSettings):
     fastapi: FastAPISettings = FastAPISettings()
-    test: TestingSettings = TestingSettings()
     mongo: Mongo = Mongo()
     sql: SQL = SQL()
     aws: AWS = AWS()
     redis: Redis = Redis()
-    blockchain: Blockchain = Blockchain()
+    cardano_submit_api: CardanoSubmitAPI = CardanoSubmitAPI()
+    services: Services = Services()
+    cardano_node: CardanoNode = CardanoNode()
+    ogmios: Ogmios = Ogmios()
+    wallet_keys: WalletKeys = WalletKeys()
+
 
     class Config:
         env_nested_delimiter = "__"
         env_file = ".env"
         extra = "ignore"
 
+
 settings = Settings()
 
 if __name__ == "__main__":
-    print(settings.test)
-    print(settings.fastapi)
+    print(settings)
