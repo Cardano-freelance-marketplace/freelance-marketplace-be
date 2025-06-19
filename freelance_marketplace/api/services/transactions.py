@@ -1,4 +1,3 @@
-import json
 from typing import List, Optional
 
 from fastapi import HTTPException
@@ -22,13 +21,13 @@ class Transaction:
             data = f.read()
         return data
 
-    async def __get_script_address(self) -> Address:
+    async def get_script_address(self) -> Address:
         plutus_script: PlutusV2Script = PlutusV2Script(await self.__load_script())
         script_hash: ScriptHash = plutus_script_hash(plutus_script)
         script_address = Address(payment_part=script_hash, network=settings.blockchain.network)
         return script_address
 
-    async def __get_plutus_script(self) -> PlutusV2Script:
+    async def get_plutus_script(self) -> PlutusV2Script:
         script_bytes: bytes = await self.__load_script()
         return PlutusV2Script(script_bytes)
 
@@ -42,7 +41,7 @@ class Transaction:
             action: str = "create_milestone"
         ) -> Transaction:
 
-        script_address = await self.__get_script_address()
+        script_address = await self.get_script_address()
         utxo: UTxO = await Ogmios().get_utxo_by_milestone(milestone_id=milestone_id, script_address=script_address)
         if not utxo:
             raise HTTPException(status_code=404, detail="UTXO Milestone not found")
@@ -100,7 +99,8 @@ class Transaction:
                 datum=datum
             )
             min_ada = min_lovelace(await self.context, output, has_datum=True)
-            output.amount = Value(min_ada)
+            if output.amount < min_ada:
+                output.amount = Value(min_ada)
             outputs.append(output)
 
         elif action.lower() == "approve_milestone":
@@ -207,9 +207,10 @@ class Transaction:
         # If spending from script
         if script_utxo and redeemer:
             # Add the script input with datum and redeemer
+            plutus_script = await self.get_plutus_script()
             builder.add_script_input(
                 utxo=script_utxo,
-                script=await self.__get_plutus_script(),
+                script=plutus_script,
                 datum=datum,
                 redeemer=redeemer
             )
