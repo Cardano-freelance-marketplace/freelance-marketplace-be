@@ -1,4 +1,8 @@
+import os
+
 from dotenv import load_dotenv
+from pycardano import Network
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 load_dotenv()
 
@@ -74,7 +78,8 @@ class CardanoSubmitAPI(BaseSettings):
         extra = "ignore"  # Ignore extra fields
 
 class Ogmios(BaseSettings):
-    url: str = ""
+    host: str = ""
+    port: str = ""
 
     class Config:
         env_prefix = "OGMIOS_"
@@ -95,6 +100,23 @@ class WalletKeys(BaseSettings):
         env_file = ".env"
         extra = "ignore"
 
+class Blockchain(BaseSettings):
+    network: Network = Network.TESTNET
+
+    @field_validator("network", mode="before")
+    @classmethod
+    def parse_network(cls, value):
+        if isinstance(value, Network):
+            return value
+        if isinstance(value, str) and value.lower() == "testnet":
+            return Network.TESTNET
+        return Network.MAINNET
+
+    class Config:
+        env_prefix = "BLOCKCHAIN_"
+        env_file = ".env"
+        extra = "ignore"
+
 class Settings(BaseSettings):
     fastapi: FastAPISettings = FastAPISettings()
     mongo: Mongo = Mongo()
@@ -106,6 +128,7 @@ class Settings(BaseSettings):
     cardano_node: CardanoNode = CardanoNode()
     ogmios: Ogmios = Ogmios()
     wallet_keys: WalletKeys = WalletKeys()
+    blockchain: Blockchain = Blockchain()
 
 
     class Config:

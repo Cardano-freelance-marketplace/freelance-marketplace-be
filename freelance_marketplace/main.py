@@ -8,7 +8,6 @@ from slowapi.errors import RateLimitExceeded
 
 from freelance_marketplace.api.services.redis import redis_client
 from freelance_marketplace.core.config import settings
-from freelance_marketplace.middleware.access_token_validator import auth_middleware
 from freelance_marketplace.middleware.response_wrapper import transform_response_middleware
 from dotenv import load_dotenv
 from freelance_marketplace.db.sql.database import init_db, AsyncSessionLocal
@@ -29,7 +28,7 @@ from freelance_marketplace.api.routes.proposals.proposals import router as propo
 from freelance_marketplace.api.routes.transactions.transactions import router as transactions_router
 from freelance_marketplace.api.routes.conversations.conversations import router as conversations_router
 from freelance_marketplace.api.routes.users.users import router as users_router
-from freelance_marketplace.api.routes.hello import router as hello_router
+from freelance_marketplace.api.routes.scripts import router as hello_router
 from freelance_marketplace.models.sql.sql_tables import Role, User, MilestoneStatus, WalletTypes, RequestStatus, \
     ServiceStatus, ProposalStatus, OrderStatus, Category, SubCategory, Skills
 

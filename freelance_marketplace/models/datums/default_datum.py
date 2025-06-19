@@ -6,9 +6,9 @@ from pydantic import BaseModel
 class Milestone(PlutusData):
     CONSTR_ID = 0  # optional, used if your on-chain type uses constructor indexing
     reward: int
-    approved_by_freelancer: bool
-    approved_by_client: bool
-    paid: bool
+    approved_by_freelancer: int
+    approved_by_client: int
+    paid: int
 
 @dataclass
 class JobAgreement(PlutusData):
@@ -20,11 +20,14 @@ class JobAgreement(PlutusData):
 
 class MilestoneModel(BaseModel):
     reward: int
-    approved_by_freelancer: bool
-    approved_by_client: bool
-    paid: bool
+    approved_by_freelancer: int
+    approved_by_client: int
+    paid: int
 
 class DatumModel(BaseModel):
     freelancer: Address
     client: Address
     milestone: MilestoneModel
+
+    class Config:
+        arbitrary_types_allowed = True  # For Pydantic v1

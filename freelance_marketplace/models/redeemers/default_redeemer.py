@@ -22,5 +22,5 @@ class DefaultRedeemer(PlutusData):
     CONSTR_ID = 0
     signer: bytes
     action: Action
-    is_client: bool
-    is_freelancer: bool
+    is_client: int
+    is_freelancer: int

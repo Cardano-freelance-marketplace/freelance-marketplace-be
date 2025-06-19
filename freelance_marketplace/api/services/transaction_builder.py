@@ -1,6 +1,7 @@
 import base64
 import json
 import subprocess
+from pathlib import Path
 from typing import List, Optional, Any, Coroutine
 
 from fastapi import HTTPException
@@ -8,20 +9,23 @@ from pycardano import *
 from pycardano import TransactionBody
 
 from freelance_marketplace.api.services.ogmios import Ogmios
+from freelance_marketplace.api.utils.blockchain.key_utils import get_skey, get_vkey
 from freelance_marketplace.core.config import settings
 from freelance_marketplace.models.datums.default_datum import Milestone, DatumModel, MilestoneModel, \
     JobAgreement
+from freelance_marketplace.models.enums.transaction_types import TransactionTypes
 from freelance_marketplace.models.redeemers.default_redeemer import DefaultRedeemer, ApproveMilestone, Refund, \
     RedeemMilestone
 
-class TransactionBuilder:
+class TransactionOrchestrator:
     def __init__(self):
-        self.network = settings.blockchain.network
         self.script = self.__load_script()
         self.context = Ogmios.get_context()
 
     async def __load_script(self) -> bytes:
-        with open("smart_contracts/job_agreement_plutus.json", "rb") as f:
+        project_root = Path(__file__).resolve().parent.parent.parent
+        path = project_root / "smart_contracts" / "job_agreement_plutus.json"
+        with open(path, "rb") as f:
             data = f.read()
         return data
 
@@ -42,11 +46,16 @@ class TransactionBuilder:
             freelancer_address: Address,
             milestone: dict,
             milestone_id: int,
-            action: str = "create_milestone"
+            action: str = "create_milestone",
+            transaction_type: TransactionTypes = TransactionTypes.spending_transaction
         ) -> TransactionBody:
 
         script_address = await self.get_script_address()
-        utxo: UTxO = await Ogmios().get_utxo_by_milestone(milestone_id=milestone_id, script_address=script_address)
+        if transaction_type == TransactionTypes.spending_transaction:
+            utxo: UTxO = await Ogmios().get_utxo_by_milestone(milestone_id=milestone_id, script_address=script_address)
+        else:
+            utxo: UTxO = await Ogmios().get_utxo_from_wallet(signer_address=signer_address)
+
         if not utxo:
             raise HTTPException(status_code=404, detail="UTXO Milestone not found")
 
@@ -55,6 +64,7 @@ class TransactionBuilder:
             freelancer_address=freelancer_address,
             milestone=milestone,
         )
+
         script_outputs: List[TransactionOutput] = await self.__build_script_outputs(
             utxo=utxo,
             action=action,
@@ -68,12 +78,15 @@ class TransactionBuilder:
         if not collateral_utxo:
             raise HTTPException(status_code=404, detail="UTXO Collateral not found")
 
-        redeemer_data = {
-            "signer": signer_address.payment_part.payload,
-            "is_client": True if signer_address == client_address else False,
-            "is_freelancer": True if signer_address == freelancer_address else False
-        }
-        redeemer: PlutusData | None = await self.__build_redeemer(action=action, data=redeemer_data)
+        if transaction_type == TransactionTypes.spending_transaction:
+            redeemer_data = {
+                "signer": signer_address.payment_part.payload,
+                "is_client": True if signer_address == client_address else False,
+                "is_freelancer": True if signer_address == freelancer_address else False
+            }
+            redeemer: PlutusData | None = await self.__build_redeemer(action=action, data=redeemer_data)
+        else:
+            redeemer = None
 
         return await self.__tx_builder(
             signer_address=signer_address,
@@ -121,6 +134,9 @@ class TransactionBuilder:
                 amount=utxo.output.amount,  # Keep same value
                 datum=datum
             )
+            min_ada = min_lovelace(await self.context, output, has_datum=True)
+            if output.amount < min_ada:
+                output.amount = Value(min_ada)
             outputs.append(output)
 
         elif action.lower() == "redeem_milestone":
@@ -222,6 +238,11 @@ class TransactionBuilder:
             # Collateral
             builder.collaterals.extend(collateral_utxos)
 
+        # add utxo to pay for fees etc..
+        builder.add_input_address(signer_address)
+        ## TODO To fix error https://ogmios.dev/mini-protocols/local-tx-submission/#errors 3123/ValueNotConserved
+        ## Add enough UTXO inputs manually to cover Output + fees
+
         # Add script output (new state)
         for output in script_outputs:
             builder.add_output(output)
@@ -237,29 +258,15 @@ class TransactionBuilder:
         return tx
 
     async def sign_tx(self, tx_body: TransactionBody) -> Transaction:
-        encrypted_skey_base64 = settings.wallet_keys.skey_encrypted
-        encrypted_skey = base64.b64decode(encrypted_skey_base64)
-
-        result = subprocess.run(
-            ["gpg", "--decrypt"],
-            input=encrypted_skey,
-            capture_output=True,
-            check=True
-        )
-
-        skey_json = json.loads(result.stdout)
-        signing_key = PaymentSigningKey.from_json(skey_json)
-
-        vkey_bytes = base64.b64decode(settings.wallet_keys.vkey)
-        vkey_json = json.loads(vkey_bytes)
-        vkey = PaymentVerificationKey.from_json(vkey_json)
+        signing_key: PaymentSigningKey = await get_skey()
+        verification_key: PaymentVerificationKey = await get_vkey()
 
         tx_hash = tx_body.hash()
         signature = signing_key.sign(tx_hash)
 
         vkey_witness = VerificationKeyWitness(
             signature=signature,
-            vkey=vkey
+            vkey=verification_key
         )
 
         witness_set = TransactionWitnessSet(vkey_witnesses=[vkey_witness])
